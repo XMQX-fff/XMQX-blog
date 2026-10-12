@@ -323,6 +323,14 @@ XMQX_CURL_RESOLVE="${SITE_DOMAIN}:${LISTEN_PORT}:127.0.0.1" \
 
 [[ $fail -eq 0 ]] || die "冒烟测试未通过"
 
+# 手动部署成功时也把 auto-deploy 的状态同步掉，否则它下次还会把同一个提交
+# 当成「待部署」白构建一遍。
+STATE_DIR="$REPO_DIR/.deploy-state"
+if [[ -d "$STATE_DIR" ]] && git -C "$REPO_DIR" rev-parse --git-dir >/dev/null 2>&1; then
+	git -C "$REPO_DIR" rev-parse HEAD > "$STATE_DIR/last-good-sha"
+	date -Is | { read -r ts; printf '%s 成功 %s\n' "$ts" "$(git -C "$REPO_DIR" rev-parse HEAD)"; } > "$STATE_DIR/last-result"
+fi
+
 log "部署完成"
 printf '    公网:      https://%s/\n' "$SITE_DOMAIN"
 printf '    www:       https://%s/  （同一张证书）\n' "$SITE_DOMAIN_ALT"
