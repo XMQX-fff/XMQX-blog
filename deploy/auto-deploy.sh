@@ -31,10 +31,10 @@ REMOTE="${XMQX_REMOTE:-origin}"
 MIN_INTERVAL="${XMQX_MIN_INTERVAL:-120}"
 
 FORCE=0
+STATUS_ONLY=0
 case "${1:-}" in
 	--status) STATUS_ONLY=1 ;;
 	--force)  FORCE=1 ;;
-	*)        STATUS_ONLY=0 ;;
 esac
 
 cd "$REPO_DIR"
@@ -60,7 +60,7 @@ read_state() {
 
 status() {
 	local head remote deployed
-head="$(git rev-parse --short HEAD 2>/dev/null || echo '?')"
+	head="$(git rev-parse --short HEAD 2>/dev/null || echo '?')"
 	remote="$(sha_of "$REMOTE/$BRANCH" | cut -c1-7)"
 	deployed="$(read_state LAST_GOOD | cut -c1-7)"
 	printf '分支          %s (%s)\n' "$BRANCH" "$REMOTE"
@@ -68,13 +68,15 @@ head="$(git rev-parse --short HEAD 2>/dev/null || echo '?')"
 	printf '远端 %s   %s\n' "$REMOTE/$BRANCH" "${remote:-<未 fetch>}"
 	printf '已部署提交    %s\n' "${deployed:-<从未成功部署>}"
 	printf '上次结果      %s\n' "$(read_state LAST_RESULT)"
+	local timer_state
+	timer_state="$(systemctl is-enabled xmqx-blog-deploy.timer 2>/dev/null || true)"
 	printf '定时器        %s / %s\n' \
-	"$(systemctl is-active xmqx-blog-deploy.timer 2>/dev/null || echo inactive)" \
-	"$(systemctl is-enabled xmqx-blog-deploy.timer 2>/dev/null || echo disabled)"
+		"$(systemctl is-active xmqx-blog-deploy.timer 2>/dev/null || echo unknown)" \
+		"${timer_state:-未安装}"
 	printf '站点          %s\n' "$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:8081/ 2>/dev/null || echo '无响应')"
 }
 
-[[ -n "${STATUS_ONLY:-}" ]] && { status; exit 0; }
+[[ "$STATUS_ONLY" == "1" ]] && { status; exit 0; }
 
 # ---------------------------------------------------------------- 拉取
 # fetch 用短超时：网络抽风时快速失败，别占着 timer 的执行窗口。
