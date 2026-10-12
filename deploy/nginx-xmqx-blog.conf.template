@@ -1,0 +1,118 @@
+# XMQX-blog：VitePress 静态站点。
+#
+# 由 deploy/install.sh 安装到 /etc/nginx/sites-available/xmqx-blog，
+# 下面的 CSP 占位符会按构建产物里的内联脚本哈希自动替换，别手改这个文件。
+#
+# 站点是纯静态产物，没有任何后端/上传/动态接口，所以安全策略可以收得很死：
+# 只读方法、禁目录列举、禁穿越/隐藏文件、限请求速率、全套安全响应头。
+
+map $uri $xmqx_blog_cache_control {
+	# 带内容哈希的产物：长期强缓存（Vite 给 /assets 下的文件名都打了内容哈希）
+	~^/assets/.+\.(?:js|mjs|css|woff2?|png|jpe?g|svg|gif|webp|json)$ "public, max-age=31536000, immutable";
+	# 入口页和 404：绝不缓存，否则更新后用户拿到的还是旧壳
+	# 注意：nginx 的 map 里 "=" 后面不能有空格（`= /x` 会被当成一个空参数），
+	#      这里统一用引号包起来的字符串做精确匹配。
+	"/index.html"                             "no-cache";
+	"/404.html"                               "no-cache";
+	"/hashmap.json"                           "no-cache";
+	"/"                                       "no-cache";
+	# 其余（手写 HTML 文档等）
+	default                                    "public, max-age=600";
+}
+
+server {
+	listen 8081;
+	listen [::]:8081;
+	server_name _;
+
+	root /home/admin/XMQX-blog/docs/.vitepress/dist;
+	index index.html;
+
+	access_log /var/log/nginx/xmqx-blog.access.log;
+	error_log  /var/log/nginx/xmqx-blog.error.log;
+
+	# ---- 请求体 / 超时：掐掉慢速攻击和「超大 body 打满内存」型 DoS ----
+	client_max_body_size 1m;
+	client_body_timeout 10s;
+	client_header_timeout 10s;
+	send_timeout 20s;
+	reset_timedout_connection on;
+	keepalive_timeout 15s;
+	keepalive_requests 100;
+
+	# 不暴露 nginx 版本（http{} 里已全局 server_tokens off，这里再兜一层）
+	server_tokens off;
+
+	# 站点全是 UTF-8，顺手在响应头里带上 charset：
+	# 少一层对响应头编码的猜测，也就少一类编码相关的坑。
+	charset utf-8;
+
+	# 不允许列目录
+	autoindex off;
+
+	# ---- 安全响应头 ----
+	# 注意：add_header 只在「本层级没有其它 add_header」时才向下继承，
+	# 所以下面所有 location 都不要再写 add_header，缓存头统一走上面的 map。
+	add_header Content-Security-Policy "default-src 'self'; script-src 'self' @@CSP_SCRIPT_SRC@@; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; media-src 'self'; object-src 'none'; worker-src 'self' blob:; manifest-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; frame-src 'none'; child-src 'none'; object-src 'none'" always;
+	add_header X-Content-Type-Options "nosniff" always;
+	add_header X-Frame-Options "DENY" always;
+	add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+	add_header Permissions-Policy "accelerometer=(), autoplay=(), camera=(), display-capture=(), encrypted-media=(), fullscreen=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), picture-in-picture=(), publickey-credentials-get=(), screen-wake-lock=(), usb=(), xr-spatial-tracking=()" always;
+	add_header Cross-Origin-Opener-Policy "same-origin" always;
+	add_header Cross-Origin-Resource-Policy "same-origin" always;
+	add_header X-Permitted-Cross-Domain-Policies "none" always;
+	add_header X-Robots-Tag "index, follow" always;
+	# 现代浏览器已废弃 X-XSS-Protection，显式置 0 免得老浏览器开启有 bug 的过滤
+	add_header X-XSS-Protection "0" always;
+	add_header Cache-Control $xmqx_blog_cache_control always;
+
+	# 限流：静态站正常浏览一次页面也就十几个请求，这个阈值远高于真人，
+	# 只用来挡脚本小子批量抓取。超了直接 429。
+	limit_req zone=xmqx_blog burst=100 nodelay;
+	limit_req_status 429;
+
+	gzip on;
+	gzip_vary on;
+	gzip_min_length 1024;
+	gzip_types text/plain text/css application/javascript application/json image/svg+xml application/xml font/woff2;
+
+	# ---- 路由 ----
+	location / {
+		# 纯只读站点：除 GET/HEAD 外一律拒绝
+		# （limit_except 只能写在 location 里，所以放这儿；
+		#   下面几个正则 location 本来就全是 deny all，不受影响）
+		limit_except GET {
+			deny all;
+		}
+
+		# VitePress 产物：目录带 index.html，页面走 /path/ 形式；
+		# 找不到就 404，不回落到首页（避免把不存在的 URL 伪装成正常页面）
+		try_files $uri $uri/ $uri.html =404;
+	}
+
+	# 友好的 404 页面
+	error_page 404 /404.html;
+
+	# ---- 禁止访问的文件 ----
+	# 隐藏文件（.git / .env / .npmrc / .htaccess …）
+	location ~ (^|/)\. {
+		deny all;
+		access_log off;
+		log_not_found off;
+	}
+
+	# 路径穿越兜底（nginx 本身会把 ../ 归一化，这里再加一道）
+	location ~ \.\.?(?:/|$) {
+		deny all;
+		access_log off;
+		log_not_found off;
+	}
+
+	# 构建产物里绝对不该出现的东西：source map、备份稿、源码、脚本、
+	# 数据库、密钥、压缩包。真混进来了（构建脚本配错、误提交）一律挡在门外。
+	location ~* \.(?:map|bak|old|orig|save|swp|swo|log|ini|conf|cfg|env|lock|sh|bash|zsh|py|rb|pl|php|cgi|lua|sql|db|sqlite|key|pem|p12|jks|keystore|psd|dwg|iso|zip|tar|tgz|gz|bz2|xz|7z|rar|jar|war|class|git)$ {
+		deny all;
+		access_log off;
+		log_not_found off;
+	}
+}

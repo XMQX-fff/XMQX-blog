@@ -1,5 +1,8 @@
 node_modules/
 docs/.vitepress/dist/
+docs/.vitepress/dist-staging/
+docs/.vitepress/dist-prev/
 docs/.vitepress/cache/
+.deploy-state/
 .DS_Store
 *.log

@@ -1,0 +1,14 @@
+[Unit]
+Description=Poll the XMQX-blog git repo every 2 minutes and redeploy on new commits
+
+[Timer]
+# 开机 3 分钟后开始第一次，之后每 2 分钟一次
+OnBootSec=3min
+OnUnitActiveSec=2min
+# 抖动一下，免得整点跟一堆系统定时任务撞在一起
+RandomizedDelaySec=45s
+# 上一轮没跑完就顺延到结束后 2 分钟，不堆积
+AccuracySec=15s
+
+[Install]
+WantedBy=timers.target
