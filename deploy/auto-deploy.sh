@@ -73,7 +73,13 @@ status() {
 	printf '定时器        %s / %s\n' \
 		"$(systemctl is-active xmqx-blog-deploy.timer 2>/dev/null || echo unknown)" \
 		"${timer_state:-未安装}"
-	printf '站点          %s\n' "$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:8081/ 2>/dev/null || echo '无响应')"
+	printf '证书到期      %s (%s)\n' \
+		"$(sudo -n openssl x509 -in /etc/letsencrypt/live/xmqx.online/fullchain.pem \
+			-noout -enddate 2>/dev/null | cut -d= -f2 || echo '未知')" \
+		"$(systemctl is-active certbot.timer 2>/dev/null || echo 'certbot.timer 未运行')"
+	printf '站点          %s / http 跳转 %s\n' \
+		"$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 https://xmqx.online/ 2>/dev/null || echo '无响应')" \
+		"$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://xmqx.online/ 2>/dev/null || echo '无响应')"
 }
 
 [[ "$STATUS_ONLY" == "1" ]] && { status; exit 0; }

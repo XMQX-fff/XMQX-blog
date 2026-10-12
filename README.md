@@ -55,9 +55,40 @@ npm run preview    # 预览构建结果
 
 | 环境 | 地址 |
 | --- | --- |
-| 本机 | `http://127.0.0.1:8081` |
-| 局域网 | `http://172.31.39.52:8081` |
-| 公网 | `http://54.206.104.234:8081` — **需先在 AWS 安全组放行 TCP 8081**，否则外部访问不通 |
+| 公网 | **https://xmqx.online** — 需在 AWS 安全组放行入站 **TCP 443** |
+| www | https://www.xmqx.online （同一张证书） |
+| 本机 | `curl -H "Host: xmqx.online" http://127.0.0.1/` |
+| 证书续签 | 走 80 端口的 ACME 验证，**80 已在安全组放行**，所以续签不受 443 未放行的影响 |
+
+站点只在 80 / 443 上按域名提供。80 一律 301 到 HTTPS（`/.well-known/acme-challenge/`
+除外，那是续签用的），不再有裸 IP 端口。
+
+80 端口上 `xmqx.online` 之外的请求会落到本机另一个应用（`server_name _` 的
+default_server）。本模板不去抢 `default_server`——抢了等于替别人的应用改行为。
+如果你希望裸 IP（`http://54.206.104.234/`）不要再暴露那套应用，需要单独调整。
+
+### HTTPS / 证书
+
+- 证书：`/etc/letsencrypt/live/xmqx.online/`，SAN 覆盖 `xmqx.online` + `www.xmqx.online`，
+  Let's Encrypt 签发，有效期 90 天（当前到 2027-01-10）。
+- 自动续签：`certbot.timer`（每 12 小时检查一次，剩 30 天以内才续），
+  续签走 HTTP-01，路径 `/.well-known/acme-challenge/`。
+- **已演练过续签**：`sudo certbot renew --cert-name xmqx.online --dry-run` 通过。
+  改 nginx 配置时别把这个 location 删了，否则续签会失败。
+- TLS 只开 1.2 / 1.3（1.0/1.1 实测被服务端以 `alert protocol version` 拒绝），
+  关闭 session ticket，只留 ECDHE+GCM/ChaCha20 套件。
+- **没开 OCSP stapling**：Let's Encrypt 新证书的 AIA 里已经不带 OCSP 地址了，
+  stapling 无从谈起。吊销状态靠 CT + 短有效期兜底。
+
+重新签发（比如换域名）：
+
+```bash
+sudo certbot certonly --webroot -w /var/www/letsencrypt \
+  -d xmqx.online -d www.xmqx.online \
+  --agree-tos --register-unsafely-without-email --non-interactive
+```
+
+改完 `deploy/nginx-xmqx-blog.conf.template` 里的域名后，重跑 `./deploy/install.sh`。
 
 ### 自动部署（git 仓库更新后自动上线）
 
@@ -97,6 +128,8 @@ journalctl -u xmqx-blog-deploy -f         # 实时日志
   隐藏文件、`.map`、备份稿、脚本、密钥、压缩包一律 403；`autoindex off`。
 - **DoS 防护**：`client_max_body_size 1m`、读/写/发送超时、
   `reset_timedout_connection`、限流 20r/s（burst 100，超了 429）。
+- **HTTPS**：80 全量 301 到 443，`Strict-Transport-Security: max-age=31536000;
+  includeSubDomains`，TLS 1.2/1.3 only，session ticket 关闭。
 - **CSP**：`script-src 'self' + 逐条内联脚本哈希`，**没有** `'unsafe-inline'` /
   `'unsafe-eval'`。哈希在构建时算，`verify-csp.py` 会在部署后从运行中的站点
   把 CSP 头取回来重算一遍对账——哈希对不上时浏览器会静默拦掉脚本，
@@ -124,9 +157,6 @@ journalctl -u xmqx-blog-deploy -f         # 实时日志
   这是自动部署的固有代价（本机 `/home/admin/agentNovel` 已经是同样的格局）。
   要收敛的话，正确的做法是把构建挪到独立的非特权用户 / 独立构建机上，
   服务器只接收构建好的产物；那样代价是本机不再能自己构建。
-- **没有 HTTPS**。纯 IP + 端口部署，自签证书会被浏览器拦，体验反而更差；
-  所以没上 `Strict-Transport-Security`（HTTP 下这个头没有意义）。
-  拿到域名后应补：`certbot --nginx` + 443 + 80 跳转 HTTPS + HSTS。
 - **`npm audit` 会报 3 个漏洞**（`vite` / `esbuild`），但都只影响
   **vitepress dev 开发服务器**（跨站读取 dev server 响应、`.map` 路径穿越）。
   线上只提供 `vitepress build` 的静态产物，不跑 dev server，因此不受影响。

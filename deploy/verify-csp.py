@@ -14,6 +14,7 @@ deploy/install.sh 在重载 nginx 之后会调这个脚本。它不信 install.s
 
 import base64
 import hashlib
+import os
 import re
 import subprocess
 import sys
@@ -24,10 +25,13 @@ HAS_SRC_RE = re.compile(rb"""\bsrc\s*=""", re.I)
 
 
 def live_csp(base: str) -> str:
-    out = subprocess.run(
-        ["curl", "-s", "-D", "-", "-o", "/dev/null", "--max-time", "10", base + "/"],
-        capture_output=True, text=True, check=True,
-    ).stdout
+    cmd = ["curl", "-s", "-D", "-", "-o", "/dev/null", "--max-time", "10"]
+    # 站点按域名提供，测试时把域名钉到 127.0.0.1，免得依赖公网端口是否放行
+    resolve = os.environ.get("XMQX_CURL_RESOLVE", "")
+    if resolve:
+        cmd += ["--resolve", resolve]
+    cmd.append(base + "/")
+    out = subprocess.run(cmd, capture_output=True, text=True, check=True).stdout
     for line in out.splitlines():
         name, _, value = line.partition(":")
         if name.strip().lower() == "content-security-policy":

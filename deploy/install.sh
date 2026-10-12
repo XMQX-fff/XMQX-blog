@@ -20,10 +20,17 @@ GEN_CSP="$REPO_DIR/deploy/gen-csp.py"
 VERIFY_CSP="$REPO_DIR/deploy/verify-csp.py"
 
 SITE_NAME="xmqx-blog"
-LISTEN_PORT="8081"
+SITE_DOMAIN="xmqx.online"
+SITE_DOMAIN_ALT="www.xmqx.online"
+LISTEN_PORT=443
+# 站点现在只在 80/443 上按域名提供，不再有裸 IP 端口。
+# 同机的 novelcraft(80) / bandgream(8080) 用的是 server_name _，
+# 80 端口上本模板会追加一个 default_server 兜底块把它们挡在后面。
 SITE_AVAILABLE="/etc/nginx/sites-available/$SITE_NAME"
 SITE_ENABLED="/etc/nginx/sites-enabled/$SITE_NAME"
 LIMITS_CONF="/etc/nginx/conf.d/${SITE_NAME}-limits.conf"
+CERT_DIR="/etc/letsencrypt/live/$SITE_DOMAIN"
+ACME_ROOT="/var/www/letsencrypt"
 
 CHECK_ONLY=0
 [[ "${1:-}" == "--check" ]] && CHECK_ONLY=1
@@ -83,6 +90,31 @@ if printf '%s' "$CONF" | grep -q '@@CSP_SCRIPT_SRC@@'; then die "CSP 占位符�
 ZONE_NAME="${SITE_NAME//-/_}"
 LIMITS="limit_req_zone \$binary_remote_addr zone=${ZONE_NAME}:10m rate=20r/s;"
 
+# ---------------------------------------------------------------- 证书
+# 域名刚签好证书这一步需要能过 ACME 验证，所以提前把 webroot 建出来。
+# 顺便校验证书在不在、还有多久过期：证书没了却 reload nginx，
+# 结果是 443 整个起不来，站点直接不可用。
+log "检查 TLS 证书"
+# /etc/letsencrypt 只有 root 能进，所以存在性判断必须走 sudo，
+# 否则永远读到「不存在」，会误导人去重签一张新证书（撞上 LE 速率限制）。
+if ! "${SUDO[@]}" test -r "$CERT_DIR/fullchain.pem" || ! "${SUDO[@]}" test -r "$CERT_DIR/privkey.pem"; then
+	"${SUDO[@]}" mkdir -p "$ACME_ROOT/.well-known/acme-challenge"
+	"${SUDO[@]}" chown -R www-data:www-data "$ACME_ROOT"
+	warn "还没有 $SITE_DOMAIN 的证书，先签一个："
+	printf '    sudo certbot certonly --webroot -w %s -d %s -d %s \\\n' \
+		"$ACME_ROOT" "$SITE_DOMAIN" "$SITE_DOMAIN_ALT"
+	printf '         --agree-tos --register-unsafely-without-email --non-interactive\n'
+	die "缺少证书，无法部署 HTTPS 站点"
+fi
+
+sudo -n openssl x509 -in "$CERT_DIR/fullchain.pem" -noout -enddate \
+	| sed "s/^/  证书到期: /" | sed 's/^/==>/'
+not_after="$(sudo -n openssl x509 -in "$CERT_DIR/fullchain.pem" -noout -enddate | cut -d= -f2)"
+days_left=$(( ( $(date -d "$not_after" +%s) - $(date +%s) ) / 86400 ))
+(( days_left < 15 )) && warn "证书只剩 ${days_left} 天，检查 certbot.timer 是否在跑：sudo systemctl status certbot.timer"
+sudo -n openssl x509 -in "$CERT_DIR/fullchain.pem" -noout -checkend 0 >/dev/null 2>&1 \
+	|| die "证书已过期，跑：sudo certbot renew --force-renewal"
+
 if [[ $CHECK_ONLY -eq 1 ]]; then
 	cleanup_staging
 	log "仅校验模式，未改动系统配置"
@@ -126,6 +158,9 @@ log "安装配置"
 printf '%s\n' "$CONF"   | "${SUDO[@]}" tee "$SITE_AVAILABLE" >/dev/null
 printf '%s\n' "$LIMITS" | "${SUDO[@]}" tee "$LIMITS_CONF"    >/dev/null
 "${SUDO[@]}" ln -sfn "$SITE_AVAILABLE" "$SITE_ENABLED"
+# 首次签发证书时用过临时的 ACME 块，主配置已经接管了，清掉免得留下两份
+# 抢同一个 server_name 的配置（nginx 会静默丢弃重复的 server 块，很难查）。
+"${SUDO[@]}" rm -f /etc/nginx/sites-enabled/acme-challenge-xmqx /etc/nginx/sites-available/acme-challenge-xmqx
 
 # nginx 以 www-data 运行，必须能从站点目录一路穿过去；缺哪一环就点出来
 log "检查 nginx(www-data) 能否读取产物"
@@ -154,11 +189,18 @@ fi
 
 # ---------------------------------------------------------------- 冒烟测试
 log "冒烟测试"
-BASE="http://127.0.0.1:${LISTEN_PORT}"
+# 站点现在按域名提供，测的时候显式带 Host 并把域名指到 127.0.0.1：
+# 这样测的是本机的 nginx，而不是绕一圈公网（公网没放行端口时会假失败）。
+BASE="https://${SITE_DOMAIN}"
+# 每个 --resolve 都得带上自己的 --resolve 关键字，漏一个 curl 就会把那个
+# "host:port:addr" 当成另一个 URL 去请求，结果是拿到两份响应、状态码串掉。
+CURL=(curl -s --max-time 10
+	--resolve "${SITE_DOMAIN}:${LISTEN_PORT}:127.0.0.1"
+	--resolve "${SITE_DOMAIN_ALT}:${LISTEN_PORT}:127.0.0.1")
 fail=0
 check() { # check <期望状态> <描述> <路径>
 	local want="$1" desc="$2" path="$3" got
-	got="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$BASE$path" || echo 000)"
+	got="$("${CURL[@]}" -o /dev/null -w '%{http_code}' "$BASE$path" || echo 000)"
 	if [[ "$got" == "$want" ]]; then
 		printf '  \033[32mok\033[0m   %-34s %s (%s)\n' "$desc" "$path" "$got"
 	else
@@ -181,7 +223,7 @@ check 403 "私钥被拒"                "/assets/id_rsa.pem"
 # 路径穿越：必须 --path-as-is，否则 curl 会在本地就把 ../ 吃掉，测不到 nginx 的行为
 traverse() { # traverse <描述> <原始路径>
 	local desc="$1" raw="$2" got
-	got="$(curl -s -o /dev/null -w '%{http_code}' --path-as-is --max-time 10 "$BASE$raw" || echo 000)"
+	got="$("${CURL[@]}" --path-as-is -o /dev/null -w '%{http_code}' "$BASE$raw" || echo 000)"
 	# 400 = nginx 直接判非法 URI；403 = 被 deny 规则挡下；404 = 归一化后落到了
 	# 站点根目录之外。三种都是安全结果，只有 200 才是漏。
 	if [[ "$got" == "400" || "$got" == "403" || "$got" == "404" ]]; then
@@ -197,7 +239,7 @@ traverse "混合编码穿越被挡"        "/%2e%2e/%2e%2e/%2e%2e/etc/passwd"
 traverse "绝对路径逃逸被挡"        "//etc/passwd"
 
 # 只允许 GET/HEAD
-code="$(curl -s -o /dev/null -w '%{http_code}' -X DELETE --max-time 10 "$BASE/")"
+code="$("${CURL[@]}" -o /dev/null -w '%{http_code}' -X DELETE "$BASE/")"
 if [[ "$code" == "403" ]]; then
 	printf '  \033[32mok\033[0m   %-34s %s\n' "DELETE 被拒" "403"
 else
@@ -205,10 +247,36 @@ else
 	fail=1
 fi
 
+# HTTP 必须 301 到 HTTPS（否则用户第一次访问是明文，HSTS 也就无从谈起）
+redir="$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' --max-time 10 \
+	--resolve "${SITE_DOMAIN}:80:127.0.0.1" "http://${SITE_DOMAIN}/graphrag/" || echo "000 ")"
+if [[ "$redir" == 301* && "$redir" == *https://* ]]; then
+	printf '  \033[32mok\033[0m   %-34s %s\n' "HTTP→HTTPS 跳转" "$redir"
+else
+	printf '  \033[31mFAIL\033[0m %-34s %s\n' "HTTP 未跳 HTTPS" "$redir"
+	fail=1
+fi
+
+# www 也要能到，且规范到主域
+code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
+	--resolve "${SITE_DOMAIN_ALT}:${LISTEN_PORT}:127.0.0.1" "https://${SITE_DOMAIN_ALT}/")"
+if [[ "$code" == "200" ]]; then
+	printf '  \033[32mok\033[0m   %-34s %s\n' "www 域名可访问" "$code"
+else
+	printf '  \033[31mFAIL\033[0m %-34s %s\n' "www 域名" "$code"
+	fail=1
+fi
+
+# 用真实 IP + 裸 Host 访问 443，应该被拒（没有匹配的 server_name 就走
+# 第一个 443 块，也就是本站）—— 这条主要防证书被裸 IP 意外复用
+code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 -k \
+	"https://127.0.0.1/" 2>/dev/null || echo 000)"
+printf '  \033[90minfo\033[0m %-34s %s\n' "裸 IP 访问 443" "$code"
+
 # 安全头是否真的发出来了
 log "检查安全响应头"
-hdrs="$(curl -s -D - -o /dev/null --max-time 10 "$BASE/")"
-for h in content-security-policy x-content-type-options x-frame-options referrer-policy permissions-policy; do
+hdrs="$("${CURL[@]}" -D - -o /dev/null "$BASE/")"
+for h in strict-transport-security content-security-policy x-content-type-options x-frame-options referrer-policy permissions-policy; do
 	if grep -qi "^$h:" <<<"$hdrs"; then
 		printf '  \033[32mok\033[0m   %s\n' "$h"
 	else
@@ -223,13 +291,49 @@ else
 	printf '  \033[32mok\033[0m   Server 头未泄露版本号\n'
 fi
 
+log "检查 TLS"
+if echo | timeout 10 openssl s_client -connect "127.0.0.1:${LISTEN_PORT}" \
+	-servername "$SITE_DOMAIN" 2>/dev/null | grep -q "TLSv1.3"; then
+	printf '  \033[32mok\033[0m   TLS 1.3 可用\n'
+else
+	printf '  \033[31mFAIL\033[0m TLS 1.3 不可用\n'
+	fail=1
+fi
+
+# 确认服务端确实拒绝 TLS 1.0/1.1。
+# 必须加 -cipher DEFAULT@SECLEVEL=0：Debian 的 openssl 客户端默认自己就不发
+# TLS1.1，不降级别的话测的是「客户端不发」而不是「服务端拒绝」，会拿到假通过。
+legacy_rejected=1
+for v in tls1 tls1_1; do
+	if echo | timeout 10 openssl s_client -connect "127.0.0.1:${LISTEN_PORT}" \
+		-servername "$SITE_DOMAIN" "-$v" -cipher 'DEFAULT@SECLEVEL=0' 2>&1 \
+		| grep -qE "^New, TLS|^Cipher    :"; then
+		printf '  \033[31mFAIL\033[0m %-34s %s\n' "TLS 1.0/1.1 已被拒绝" "$v 居然能握手"
+		legacy_rejected=0
+	fi
+done
+if [[ $legacy_rejected -eq 1 ]]; then
+	printf '  \033[32mok\033[0m   %-34s %s\n' "TLS 1.0/1.1 已被拒绝" "alert protocol version"
+fi
+
 log "检查 CSP 是否真的覆盖了所有内联脚本"
 # 重新从运行中的站点取 CSP 头重算一遍，防止哈希算错导致脚本被浏览器静默拦掉
-python3 "$VERIFY_CSP" "http://127.0.0.1:${LISTEN_PORT}" "$DIST_DIR" || die "CSP 复核未通过"
+XMQX_CURL_RESOLVE="${SITE_DOMAIN}:${LISTEN_PORT}:127.0.0.1" \
+	python3 "$VERIFY_CSP" "$BASE" "$DIST_DIR" || die "CSP 复核未通过"
 
 [[ $fail -eq 0 ]] || die "冒烟测试未通过"
 
 log "部署完成"
-printf '    本机:      %s\n' "$BASE"
-printf '    局域网:    http://%s:%s/\n' "$(hostname -I | awk '{print $1}')" "$LISTEN_PORT"
-printf '    公网:      http://54.206.104.234:%s/  （需在 AWS 安全组放行 TCP %s）\n' "$LISTEN_PORT" "$LISTEN_PORT"
+printf '    公网:      https://%s/\n' "$SITE_DOMAIN"
+printf '    www:       https://%s/  （同一张证书）\n' "$SITE_DOMAIN_ALT"
+printf '    本机测试:  curl -H "Host: %s" http://127.0.0.1/\n' "$SITE_DOMAIN"
+if ! ss -ltn 2>/dev/null | grep -q ":${LISTEN_PORT}[[:space:]]"; then
+	warn "本机 ${LISTEN_PORT} 没在监听，请检查 nginx"
+fi
+# 从外部能不能连上，取决于安全组，跟 nginx 配置无关，这里提前说清楚，
+# 免得部署完了访问不了以为是站点挂了。
+PUBLIC_IP="$(curl -s --max-time 5 https://api.ipify.org 2>/dev/null || echo '')"
+if [[ -n "$PUBLIC_IP" ]] && ! timeout 6 bash -c "echo > /dev/tcp/${PUBLIC_IP}/${LISTEN_PORT}" 2>/dev/null; then
+	warn "公网 ${PUBLIC_IP}:${LISTEN_PORT} 连不上 —— 需要在 AWS 安全组放行入站 TCP ${LISTEN_PORT}"
+	warn "（80 目前是放行的，所以证书续签不受影响）"
+fi

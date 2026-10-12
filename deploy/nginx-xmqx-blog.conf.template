@@ -21,9 +21,51 @@ map $uri $xmqx_blog_cache_control {
 }
 
 server {
-	listen 8081;
-	listen [::]:8081;
-	server_name _;
+	listen 80;
+	listen [::]:80;
+	server_name xmqx.online www.xmqx.online;
+
+	# ACME HTTP-01 续签用：Let's Encrypt 只走 80 端口验证域名，
+	# 所以这一段必须在跳转 HTTPS 之前生效，否则证书续不上。
+	location ^~ /.well-known/acme-challenge/ {
+		root /var/www/letsencrypt;
+		default_type text/plain;
+		try_files $uri =404;
+		access_log off;
+	}
+
+	location / {
+		return 301 https://xmqx.online$request_uri;
+	}
+}
+
+# 注意：这里只管按域名进来的请求。没有匹配 server_name 的请求（比如直接
+# 敲裸 IP）会落到本机 80 端口的 default_server，那是同机另一个项目的站点，
+# 本模板不去抢 default_server —— 抢了等于替别人的应用改行为。
+# 裸 IP 暴露的是那套应用自己的事，要收口应该由它自己处理。
+
+server {
+	listen 443 ssl;
+	listen [::]:443 ssl;
+	http2 on;
+	server_name xmqx.online www.xmqx.online;
+
+	ssl_certificate     /etc/letsencrypt/live/xmqx.online/fullchain.pem;
+	ssl_certificate_key /etc/letsencrypt/live/xmqx.online/privkey.pem;
+
+	# TLS 参数收紧到 TLS 1.2+。1.0/1.1 没有任何浏览器还开着，留着只是给
+	# BEAST/POODLE 这类问题留入口。会话复用和 0-RTT 都关掉。
+	ssl_protocols TLSv1.2 TLSv1.3;
+	ssl_prefer_server_ciphers off;
+	ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305;
+	ssl_session_cache shared:XMQXSSL:10m;
+	ssl_session_timeout 1d;
+	ssl_session_tickets off;
+
+	# 不开 OCSP stapling：Let's Encrypt 从 2024 年起签发的证书不再带
+	# OCSP 地址（AIA 里只有 CA Issuers），stapling 无从谈起，只会每次
+	# nginx -t 报一条 "no OCSP responder URL" 的告警。
+	# 吊销状态靠 CT 日志 + 短有效期（90 天）兜底。
 
 	root /home/admin/XMQX-blog/docs/.vitepress/dist;
 	index index.html;
@@ -53,6 +95,7 @@ server {
 	# ---- 安全响应头 ----
 	# 注意：add_header 只在「本层级没有其它 add_header」时才向下继承，
 	# 所以下面所有 location 都不要再写 add_header，缓存头统一走上面的 map。
+	add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 	add_header Content-Security-Policy "default-src 'self'; script-src 'self' @@CSP_SCRIPT_SRC@@; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; media-src 'self'; object-src 'none'; worker-src 'self' blob:; manifest-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; frame-src 'none'; child-src 'none'; object-src 'none'" always;
 	add_header X-Content-Type-Options "nosniff" always;
 	add_header X-Frame-Options "DENY" always;
