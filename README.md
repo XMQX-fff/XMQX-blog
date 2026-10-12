@@ -55,17 +55,16 @@ npm run preview    # 预览构建结果
 
 | 环境 | 地址 |
 | --- | --- |
-| 公网 | **https://xmqx.online** — 需在 AWS 安全组放行入站 **TCP 443** |
+| 公网 | **https://xmqx.online** |
 | www | https://www.xmqx.online （同一张证书） |
 | 本机 | `curl -H "Host: xmqx.online" http://127.0.0.1/` |
-| 证书续签 | 走 80 端口的 ACME 验证，**80 已在安全组放行**，所以续签不受 443 未放行的影响 |
 
 站点只在 80 / 443 上按域名提供。80 一律 301 到 HTTPS（`/.well-known/acme-challenge/`
-除外，那是续签用的），不再有裸 IP 端口。
+除外，那是续签用的），不再有裸 IP 端口。80/443 在 AWS 安全组里都是放行的。
 
-80 端口上 `xmqx.online` 之外的请求会落到本机另一个应用（`server_name _` 的
-default_server）。本模板不去抢 `default_server`——抢了等于替别人的应用改行为。
-如果你希望裸 IP（`http://54.206.104.234/`）不要再暴露那套应用，需要单独调整。
+裸 IP（`http://54.206.104.234/`）和伪造 Host 会被 `conf.d/00-default-deny.conf`
+直接掐断连接，不落到任何应用上。那个兜底块由 NovelCraft 的
+`deploy/enable-domain.sh` 统一管理。
 
 ### HTTPS / 证书
 
@@ -141,17 +140,6 @@ journalctl -u xmqx-blog-deploy -f         # 实时日志
 
 ### 已知限制 / 后续
 
-- **部署脚本还没推上 GitHub**。服务器上的 `deploy/` 目前只在本地提交里，
-  而自动部署靠 `--ff-only` 拉取。你从自己机器往 GitHub 推新提交之前，
-  需要先把这两个提交并进去，否则两边分叉，定时器会报「无法快进」：
-  ```bash
-  # 在服务器上导出（已生成 /tmp/xmqx-blog-deploy.bundle）
-  git bundle create /tmp/xmqx-blog-deploy.bundle origin/main..main
-  # 在你的机器上
-  git fetch /path/to/xmqx-blog-deploy.bundle 'refs/heads/*:refs/remotes/bundle/*'
-  git merge origin/main          # 或 git rebase origin/main
-  git push origin main
-  ```
 - **信任边界**：`admin` 有免密 sudo，且 `npm ci` 会执行仓库里的生命周期脚本。
   也就是说——**任何能往这个仓库推提交的人，都等于能在这台机器上拿到 root**。
   这是自动部署的固有代价（本机 `/home/admin/agentNovel` 已经是同样的格局）。
