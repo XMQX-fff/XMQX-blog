@@ -96,6 +96,30 @@ if [[ $FORCE -eq 0 && "$target" == "$last_good" ]]; then
 	exit 0
 fi
 
+# 工作区脏了就停手：自动 reset 会吃掉你本地的未提交修改
+if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
+	die "工作区有未提交修改，拒绝自动部署。请先 commit 或 stash。"
+fi
+
+# 只接受快进。远端出现 merge commit、或被 force-push/rebase 改写了历史时直接拒绝，
+# 免得服务器上凭空多出一个 merge，或者把本地已部署的历史悄悄改掉。
+# 故意不给 --allow-unrelated-histories：两边已经分叉是需要人来看的事，不该自动和解。
+if ! git merge --ff-only --quiet "$REMOTE/$BRANCH"; then
+	die "无法快进到 $REMOTE/$BRANCH（远端可能发生了 rebase/force-push），需人工介入"
+fi
+
+head_now="$(git rev-parse HEAD)"
+
+# 判断依据是「合并之后的 HEAD 是不是已经部署过了」，而不是「远端有没有变」。
+# 用后者会在本地领先远端时（部署脚本还没推上 GitHub 时就是这个状态）
+# 每轮都判定成「有更新」，于是每 2 分钟白白重建 + 重载一次 nginx。
+if [[ $FORCE -eq 0 && "$head_now" == "$last_good" ]]; then
+	log "远端无实质更新（本地 $head_now 就是线上版本），跳过"
+	exit 0
+fi
+
+log "更新 ${last_good:-<无>} -> $head_now"
+
 # 节流：连续推送时不反复 build
 if [[ -n "$last_good" ]] && [[ $FORCE -eq 0 ]]; then
 	last_ts="$(stat -c %Y "$LAST_GOOD" 2>/dev/null || echo 0)"
@@ -105,21 +129,6 @@ if [[ -n "$last_good" ]] && [[ $FORCE -eq 0 ]]; then
 		exit 0
 	fi
 fi
-
-# 工作区脏了就停手：自动 reset 会吃掉你本地的未提交修改
-if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
-	die "工作区有未提交修改，拒绝自动部署。请先 commit 或 stash。"
-fi
-
-log "更新 $last_good -> $target"
-# --ff-only：只接受快进。远端出现 merge commit 或被 force-push 改写历史时直接拒绝，
-# 免得服务器上凭空多出一个 merge，或者把本地历史悄悄改掉。
-if ! git merge --ff-only --quiet "$REMOTE/$BRANCH"; then
-	die "无法快进到 $REMOTE/$BRANCH（远端可能发生了 rebase/force-push），需人工介入"
-fi
-
-head_now="$(git rev-parse HEAD)"
-log "当前 HEAD $(git rev-parse --short HEAD)"
 
 # ---------------------------------------------------------------- 部署
 if bash "$INSTALL_SH"; then
