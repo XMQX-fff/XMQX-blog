@@ -59,6 +59,35 @@ npm run preview    # 预览构建结果
 | 局域网 | `http://172.31.39.52:8081` |
 | 公网 | `http://54.206.104.234:8081` — **需先在 AWS 安全组放行 TCP 8081**，否则外部访问不通 |
 
+### 自动部署（git 仓库更新后自动上线）
+
+`xmqx-blog-deploy.timer` 每 2 分钟拉一次远端 `main`，有实质更新就自动
+`npm ci` → 构建 → 重载 nginx → 冒烟测试。
+
+```bash
+sudo ./deploy/install-timer.sh             # 安装并启动定时器
+sudo ./deploy/install-timer.sh --status    # 看状态
+./deploy/auto-deploy.sh --status           # 看已部署的提交、上次结果
+./deploy/auto-deploy.sh                    # 手动跑一次
+./deploy/auto-deploy.sh --force            # 不管有没有更新都重新部署
+sudo ./deploy/install-timer.sh --uninstall # 停掉自动部署（站点继续运行）
+journalctl -u xmqx-blog-deploy -f         # 实时日志
+```
+
+行为约定：
+
+- **没有实质更新就秒退**（约 0.1 秒），不碰线上。
+- **只接受快进**（`git merge --ff-only`）。远端被 rebase/force-push 改写历史时
+  直接拒绝并要求人工介入，不在服务器上自动生成 merge commit。
+- **工作区有未提交改动就拒绝部署**，不会自动 reset 掉你正在写的东西。
+- **构建先落在暂存目录**，校验全部通过才切换到 `dist`。
+  构建失败（OOM / markdown 报错 / 磁盘满）时线上站点一个字节都不会被动过。
+- **部署失败自动回滚**到上一个已验证可用的提交并重新构建；
+  如果回滚期间发现工作区出现了新改动，会把改动 stash 起来并停下，绝不硬删。
+- 全程 `flock`，和手动 `install.sh` 互斥。
+- 定时器以 `admin` 身份跑，并设了 `Nice=10` / `IOSchedulingClass=idle`，
+  不和同机的 novelcraft、bandgream 抢资源。
+
 ### 安全策略
 
 站点是纯静态产物，没有后端接口、没有上传、没有动态内容，所以能收得很紧：
@@ -79,6 +108,22 @@ npm run preview    # 预览构建结果
 
 ### 已知限制 / 后续
 
+- **部署脚本还没推上 GitHub**。服务器上的 `deploy/` 目前只在本地提交里，
+  而自动部署靠 `--ff-only` 拉取。你从自己机器往 GitHub 推新提交之前，
+  需要先把这两个提交并进去，否则两边分叉，定时器会报「无法快进」：
+  ```bash
+  # 在服务器上导出（已生成 /tmp/xmqx-blog-deploy.bundle）
+  git bundle create /tmp/xmqx-blog-deploy.bundle origin/main..main
+  # 在你的机器上
+  git fetch /path/to/xmqx-blog-deploy.bundle 'refs/heads/*:refs/remotes/bundle/*'
+  git merge origin/main          # 或 git rebase origin/main
+  git push origin main
+  ```
+- **信任边界**：`admin` 有免密 sudo，且 `npm ci` 会执行仓库里的生命周期脚本。
+  也就是说——**任何能往这个仓库推提交的人，都等于能在这台机器上拿到 root**。
+  这是自动部署的固有代价（本机 `/home/admin/agentNovel` 已经是同样的格局）。
+  要收敛的话，正确的做法是把构建挪到独立的非特权用户 / 独立构建机上，
+  服务器只接收构建好的产物；那样代价是本机不再能自己构建。
 - **没有 HTTPS**。纯 IP + 端口部署，自签证书会被浏览器拦，体验反而更差；
   所以没上 `Strict-Transport-Security`（HTTP 下这个头没有意义）。
   拿到域名后应补：`certbot --nginx` + 443 + 80 跳转 HTTPS + HSTS。
