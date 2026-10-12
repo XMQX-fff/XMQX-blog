@@ -1,0 +1,15 @@
+{
+  "name": "xmqx-blog",
+  "version": "1.0.0",
+  "private": true,
+  "description": "XMQX 的博客：学习笔记与资料整理（GraphRAG 学习等栏目）",
+  "type": "module",
+  "scripts": {
+    "dev": "vitepress dev docs",
+    "build": "vitepress build docs",
+    "preview": "vitepress preview docs"
+  },
+  "devDependencies": {
+    "vitepress": "^1.6.3"
+  }
+}
