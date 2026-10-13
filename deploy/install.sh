@@ -71,6 +71,12 @@ rm -rf "$STAGING_DIR"
 npm run build -- --outDir "$STAGING_DIR"
 [[ -f "$STAGING_DIR/index.html" ]] || die "构建失败：$STAGING_DIR/index.html 不存在"
 
+# 这两页是整块内联 HTML，组件外观全靠 custom.css 里手写的规则撑着。
+# 漏一个 class 不会让构建失败，只会让那个元素变成一坨裸文字 —— 曾经漏了
+# .sec-num，1~12 的章节编号全没了底色和对齐，很难一眼看出是样式问题。
+log "检查文档组件样式齐全"
+python3 "$REPO_DIR/deploy/check-doc-styles.py" "$REPO_DIR/docs" || die "文档样式不完整，先补 custom.css"
+
 # 产物里绝不能出现这些东西，否则等于把源码/密钥发到公网
 log "检查产物里没有敏感文件"
 leaks="$(find "$STAGING_DIR" \( -name '*.map' -o -name '.env*' -o -name '.git*' -o -name '*.pem' -o -name '*.key' -o -name 'id_rsa*' -o -name '*.log' \) -print)"

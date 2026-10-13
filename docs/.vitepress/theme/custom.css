@@ -174,6 +174,42 @@
   white-space: nowrap;
 }
 
+/* ---------- 源码解析：章节头（编号徽章 + 标题 + 导语） ----------
+ * 这一组漏过一次：当时只挑了「看起来像卡片」的样式，sec-* 这三个忘了搬，
+ * 结果正文里 1~12 的章节编号变成了一堆裸文字，没有底色也没有对齐。
+ */
+.vp-doc section { margin-bottom: 56px; }
+.vp-doc .sec-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+.vp-doc .sec-num {
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--x-blue);
+  border-radius: 7px;
+  padding: 3px 9px;
+  flex-shrink: 0;
+}
+/* 章节标题在 flex 行里，必须清掉 .vp-doc h2 自带的大上下外边距，
+ * 否则编号和标题会被上下顶开、baseline 对齐失效。 */
+.vp-doc .sec-head h2 {
+  margin: 0;
+  font-size: 24px;
+  padding: 0;
+  border-top: none;
+}
+.vp-doc .sec-head h2::before { content: none; }
+.vp-doc .sec-lead {
+  color: var(--x-muted);
+  margin: 4px 0 20px;
+  font-size: 14.5px;
+}
+.vp-doc .muted { color: var(--x-muted); }
+
 /* ---------- 源码解析：概览卡片 ---------- */
 .vp-doc .card {
   background: var(--x-panel);
@@ -315,6 +351,17 @@
 
 .vp-doc ul.plain { padding-left: 20px; }
 .vp-doc ul.plain li { margin: 5px 0; }
+
+/* ---------- 行内代码 ----------
+ * 原文件用的是 <code class="inline">。.vp-doc 对行内代码本来就有样式，
+ * 这里只补字距和颜色微调，不去覆盖主题的底色，避免和代码块风格脱节。
+ */
+.vp-doc code.inline {
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.88em;
+  padding: 1.5px 6px;
+  border-radius: 5px;
+}
 
 /* ---------- 代码块内的语法着色 ----------
  * 这两页的代码块保留原文件手写的 span 标注（.k 关键字 / .s 字符串 /
