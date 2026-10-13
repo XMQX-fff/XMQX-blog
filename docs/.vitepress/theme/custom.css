@@ -1,0 +1,324 @@
+/* GraphRAG 两篇长文档的组件样式。
+ *
+ * 这两份文档原本是 docs/public/ 下独立的手写 HTML，自带一套配色和排版。
+ * 现在它们是普通的 VitePress 页面，导航、侧边栏、右侧大纲、字体、代码高亮
+ * 都由主题接管，这里只保留作者自己设计的组件（课程卡片、提示框、流程图、
+ * 步骤条等）的外观。
+ *
+ * 关键点：颜色一律走 VitePress 的 CSS 变量（--vp-c-*）。这些变量自带暗色
+ * 模式对应值，切到暗色时组件会跟着变；原来那套写死的十六进制值在暗色下
+ * 会全部翻车（白底黑字变成黑底黑字）。
+ *
+ * 排版相关的规则（body / h2 / p / table / code 的基础样式）刻意不写：
+ * 那是 .vp-doc 的职责，写在这里反而会盖掉主题，两边风格对不上。
+ */
+
+/* ---------- 通用配色变量 ---------- */
+.vp-doc {
+  --x-panel: var(--vp-c-bg-soft);
+  --x-ink: var(--vp-c-text-1);
+  --x-muted: var(--vp-c-text-2);
+  --x-line: var(--vp-c-divider);
+
+  --x-blue: var(--vp-c-brand-1);
+  --x-blue-soft: var(--vp-c-brand-soft);
+  --x-green: var(--vp-c-tip-1);
+  --x-green-soft: var(--vp-c-tip-soft);
+  --x-amber: var(--vp-c-warning-1);
+  --x-amber-soft: var(--vp-c-warning-soft);
+  --x-rose: var(--vp-c-danger-1);
+  --x-rose-soft: var(--vp-c-danger-soft);
+  --x-slate: var(--vp-c-default-1);
+  --x-slate-soft: var(--vp-c-default-soft);
+  --x-radius: 14px;
+
+  /* 紫色没有对应的 VitePress 调色板槽位，自己定义并给一套暗色值 */
+  --x-purple: #7c3aed;
+  --x-purple-soft: #f5f3ff;
+}
+.dark .vp-doc {
+  --x-purple: #c4b5fd;
+  --x-purple-soft: #2e1065;
+}
+
+/* ---------- 教程：分篇横幅 + 课程卡片 ---------- */
+.vp-doc .part {
+  margin: 46px 0 30px;
+  padding: 22px 26px;
+  border-radius: 18px;
+  color: #fff;
+  background: linear-gradient(135deg, #1e3a8a, #3b0764);
+}
+.vp-doc .part .pno {
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  opacity: 0.75;
+  font-weight: 700;
+}
+.vp-doc .part h2 { margin: 4px 0 6px; font-size: 23px; border-top: none; }
+.vp-doc .part p { margin: 0; font-size: 14px; opacity: 0.88; }
+
+.vp-doc .lesson {
+  background: var(--x-panel);
+  border: 1px solid var(--x-line);
+  border-radius: var(--x-radius);
+  margin: 0 0 34px;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
+  overflow: hidden;
+}
+.dark .vp-doc .lesson { box-shadow: none; }
+.vp-doc .lhead {
+  padding: 18px 28px 14px;
+  border-bottom: 1px solid var(--x-line);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.vp-doc .lno {
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+  background: var(--x-blue);
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.vp-doc .lhead h3 { margin: 0; font-size: 19.5px; font-weight: 700; border-top: none; }
+.vp-doc .ldiff {
+  font-size: 11.5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-weight: 700;
+  background: var(--x-slate-soft);
+  color: var(--x-muted);
+}
+.vp-doc .lbody { padding: 20px 28px 24px; }
+
+/* 术语：虚线下划线 + 原生 tooltip */
+.vp-doc .term {
+  border-bottom: 1.5px dotted var(--x-blue);
+  color: var(--x-blue);
+  cursor: help;
+  font-weight: 600;
+}
+
+/* ---------- 提示框 ---------- */
+.vp-doc .box {
+  border-radius: 11px;
+  padding: 13px 17px;
+  margin: 15px 0;
+  font-size: 14.5px;
+}
+.vp-doc .box b.hd {
+  display: block;
+  font-size: 12.5px;
+  letter-spacing: 0.06em;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  opacity: 0.9;
+}
+.vp-doc .an { background: var(--x-amber-soft); border: 1px solid var(--x-amber); }
+.vp-doc .an b.hd { color: var(--x-amber); }
+.vp-doc .ex { background: var(--x-blue-soft); border: 1px solid var(--x-blue); }
+.vp-doc .ex b.hd { color: var(--x-blue); }
+.vp-doc .kp { background: var(--x-green-soft); border: 1px solid var(--x-green); }
+.vp-doc .kp b.hd { color: var(--x-green); }
+.vp-doc .wa { background: var(--x-rose-soft); border: 1px solid var(--x-rose); }
+.vp-doc .wa b.hd { color: var(--x-rose); }
+.vp-doc .sn { background: var(--x-slate-soft); border: 1px solid var(--x-line); }
+.vp-doc .sn b.hd { color: var(--x-slate); }
+
+/* ---------- 横向流程图 ---------- */
+.vp-doc .flow { display: flex; gap: 8px; flex-wrap: wrap; align-items: stretch; margin: 14px 0; }
+.vp-doc .fbox {
+  flex: 1;
+  min-width: 120px;
+  border: 1.5px solid;
+  border-radius: 10px;
+  padding: 10px;
+  font-size: 12.5px;
+  text-align: center;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.vp-doc .fbox small { display: block; font-weight: 400; font-size: 11px; opacity: 0.8; margin-top: 2px; }
+.vp-doc .f1 { background: var(--x-blue-soft); border-color: var(--x-blue); color: var(--x-blue); }
+.vp-doc .f2 { background: var(--x-green-soft); border-color: var(--x-green); color: var(--x-green); }
+.vp-doc .f3 { background: var(--x-amber-soft); border-color: var(--x-amber); color: var(--x-amber); }
+.vp-doc .f4 { background: var(--x-purple-soft); border-color: var(--x-purple); color: var(--x-purple); }
+.vp-doc .f5 { background: var(--x-slate-soft); border-color: var(--x-line); color: var(--x-muted); }
+.vp-doc .arr { align-self: center; color: var(--x-muted); font-weight: 800; }
+
+.vp-doc .mini { font-size: 13.5px; color: var(--x-muted); }
+.vp-doc .fileref {
+  font-family: var(--vp-font-family-mono);
+  font-size: 12px;
+  background: var(--x-blue-soft);
+  color: var(--x-blue);
+  padding: 2px 7px;
+  border-radius: 5px;
+  white-space: nowrap;
+}
+.vp-doc .file-ref {
+  font-family: var(--vp-font-family-mono);
+  font-size: 12px;
+  background: var(--x-slate-soft);
+  padding: 2px 7px;
+  border-radius: 5px;
+  color: var(--x-muted);
+  white-space: nowrap;
+}
+
+/* ---------- 源码解析：概览卡片 ---------- */
+.vp-doc .card {
+  background: var(--x-panel);
+  border: 1px solid var(--x-line);
+  border-radius: var(--x-radius);
+  padding: 20px 24px;
+  margin: 16px 0;
+}
+.vp-doc .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.vp-doc .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.vp-doc .feat {
+  background: var(--x-panel);
+  border: 1px solid var(--x-line);
+  border-radius: var(--x-radius);
+  padding: 16px 18px;
+}
+.vp-doc .feat .ico { font-size: 20px; margin-bottom: 6px; }
+.vp-doc .feat h4 { margin: 0 0 6px; font-size: 14.5px; border-top: none; }
+.vp-doc .feat p { margin: 0; font-size: 13px; color: var(--x-muted); line-height: 1.65; }
+
+.vp-doc .stat-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0 4px; }
+.vp-doc .stat-chip {
+  font-size: 11.5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--x-blue-soft);
+  color: var(--x-blue);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ---------- 小标签 ---------- */
+.vp-doc .tag {
+  display: inline-block;
+  font-size: 11.5px;
+  font-weight: 650;
+  padding: 2px 9px;
+  border-radius: 999px;
+  vertical-align: middle;
+}
+.vp-doc .tag.blue { background: var(--x-blue-soft); color: var(--x-blue); }
+.vp-doc .tag.green { background: var(--x-green-soft); color: var(--x-green); }
+.vp-doc .tag.orange { background: var(--x-amber-soft); color: var(--x-amber); }
+.vp-doc .tag.purple { background: var(--x-purple-soft); color: var(--x-purple); }
+
+/* ---------- 架构图 ---------- */
+.vp-doc .arch { margin: 22px 0; }
+.vp-doc .arch-row { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+.vp-doc .arch-box {
+  flex: 1;
+  min-width: 130px;
+  text-align: center;
+  border-radius: 10px;
+  padding: 12px 10px;
+  border: 1.5px solid;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+.vp-doc .arch-box small { display: block; font-weight: 400; font-size: 11px; margin-top: 3px; opacity: 0.75; }
+.vp-doc .ab-blue { background: var(--x-blue-soft); border-color: var(--x-blue); color: var(--x-blue); }
+.vp-doc .ab-green { background: var(--x-green-soft); border-color: var(--x-green); color: var(--x-green); }
+.vp-doc .ab-orange { background: var(--x-amber-soft); border-color: var(--x-amber); color: var(--x-amber); }
+.vp-doc .ab-purple { background: var(--x-purple-soft); border-color: var(--x-purple); color: var(--x-purple); }
+.vp-doc .ab-gray { background: var(--x-slate-soft); border-color: var(--x-line); color: var(--x-muted); }
+.vp-doc .arch-arrow {
+  text-align: center;
+  color: var(--x-muted);
+  font-size: 16px;
+  margin: 2px 0 12px;
+  letter-spacing: 6px;
+}
+.vp-doc .arch-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--x-muted);
+  margin: 16px 0 8px;
+}
+
+/* ---------- 步骤条 ---------- */
+.vp-doc .steps { counter-reset: xmqx-step; margin: 16px 0; }
+.vp-doc .step {
+  position: relative;
+  padding: 14px 18px 14px 62px;
+  background: var(--x-panel);
+  border: 1px solid var(--x-line);
+  border-radius: var(--x-radius);
+  margin-bottom: 10px;
+}
+.vp-doc .step::before {
+  counter-increment: xmqx-step;
+  content: counter(xmqx-step);
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--x-blue);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 13.5px;
+}
+.vp-doc .step h4 { margin: 0 0 4px; font-size: 14.5px; border-top: none; }
+.vp-doc .step p { margin: 0; font-size: 13.5px; color: var(--x-muted); }
+
+/* ---------- 旁注 ---------- */
+.vp-doc .note {
+  border-left: 4px solid var(--x-blue);
+  background: var(--x-blue-soft);
+  border-radius: 0 10px 10px 0;
+  padding: 12px 18px;
+  margin: 16px 0;
+  font-size: 14px;
+}
+.vp-doc .note.warn { border-left-color: var(--x-amber); background: var(--x-amber-soft); }
+.vp-doc .note.good { border-left-color: var(--x-green); background: var(--x-green-soft); }
+.vp-doc .note b { display: block; margin-bottom: 2px; }
+
+/* ---------- 对比块 ---------- */
+.vp-doc .vs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: 1px solid var(--x-line);
+  border-radius: var(--x-radius);
+  overflow: hidden;
+  margin: 16px 0;
+}
+.vp-doc .vs > div { padding: 18px 22px; }
+.vp-doc .vs .left { background: var(--x-amber-soft); border-right: 1px solid var(--x-line); }
+.vp-doc .vs .right { background: var(--x-green-soft); }
+.vp-doc .vs h4 { margin: 0 0 10px; border-top: none; }
+.vp-doc .vs ul { margin: 0; padding-left: 18px; font-size: 13.5px; color: var(--x-muted); }
+.vp-doc .vs li { margin: 4px 0; }
+
+.vp-doc ul.plain { padding-left: 20px; }
+.vp-doc ul.plain li { margin: 5px 0; }
+
+/* ---------- 窄屏 ---------- */
+@media (max-width: 960px) {
+  .vp-doc .grid2, .vp-doc .grid3, .vp-doc .vs { grid-template-columns: 1fr; }
+  .vp-doc .vs .left { border-right: none; border-bottom: 1px solid var(--x-line); }
+  .vp-doc .lbody, .vp-doc .lhead { padding-left: 18px; padding-right: 18px; }
+}

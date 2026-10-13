@@ -6,3 +6,5 @@ docs/.vitepress/cache/
 .deploy-state/
 .DS_Store
 *.log
+__pycache__/
+*.pyc

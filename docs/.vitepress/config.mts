@@ -19,8 +19,8 @@ export default defineConfig({
           collapsed: false,
           items: [
             { text: '概览与学习路线', link: '/graphrag/' },
-            { text: '从入门到理解（初学者教程）', link: '/graphrag/nano-graphrag-tutorial.html' },
-            { text: '源码深度解析（参考手册）', link: '/graphrag/nano-graphrag-source-analysis.html' },
+            { text: '从入门到理解（初学者教程）', link: '/graphrag/nano-graphrag-tutorial' },
+            { text: '源码深度解析（参考手册）', link: '/graphrag/nano-graphrag-source-analysis' },
           ],
         },
       ],
