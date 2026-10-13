@@ -245,12 +245,36 @@ traverse "混合编码穿越被挡"        "/%2e%2e/%2e%2e/%2e%2e/etc/passwd"
 traverse "绝对路径逃逸被挡"        "//etc/passwd"
 
 # 只允许 GET/HEAD
-code="$("${CURL[@]}" -o /dev/null -w '%{http_code}' -X DELETE "$BASE/")"
+code="$(curl -s -o /dev/null -w '%{http_code}' -X DELETE "$BASE/")"
 if [[ "$code" == "403" ]]; then
 	printf '  \033[32mok\033[0m   %-34s %s\n' "DELETE 被拒" "403"
 else
 	printf '  \033[31mFAIL\033[0m %-34s %s (实际 %s)\n' "DELETE 被拒" "$code"
 	fail=1
+fi
+
+# 缓存策略：HTML 必须每次回源校验，只有带哈希的产物才 immutable。
+# 这条踩过坑：HTML 被缓存 10 分钟时，页面里引用的是旧哈希的 CSS/JS，
+# 于是「服务端已经更新、页面却刷不出来」，从浏览器侧完全看不出原因。
+cache_of() { curl -s -D - -o /dev/null --max-time 10 "$1" | grep -i '^cache-control' | tr -d '\r' | sed 's/^[Cc]ache-[Cc]ontrol: *//'; }
+for p in / /graphrag/ /graphrag/nano-graphrag-tutorial.html /graphrag/nano-graphrag-source-analysis.html; do
+	cc="$(cache_of "${BASE}${p}")"
+	if [[ "$cc" == no-cache* ]]; then
+		printf '  \033[32mok\033[0m   %-34s %s\n' "HTML 不缓存 ${p}" "$cc"
+	else
+		printf '  \033[31mFAIL\033[0m %-34s %s (HTML 必须 no-cache)\n' "HTML 不缓存 ${p}" "$cc"
+		fail=1
+	fi
+done
+asset="$(curl -s "${BASE}/" | grep -o '/assets/style\.[A-Za-z0-9_-]*\.css' | head -1)"
+if [[ -n "$asset" ]]; then
+	cc="$(cache_of "${BASE}${asset}")"
+	if [[ "$cc" == *immutable* ]]; then
+		printf '  \033[32mok\033[0m   %-34s %s\n' "带哈希产物 immutable" "$cc"
+	else
+		printf '  \033[31mFAIL\033[0m %-34s %s (应为 immutable)\n' "带哈希产物 immutable" "$cc"
+		fail=1
+	fi
 fi
 
 # HTTP 必须 301 到 HTTPS（否则用户第一次访问是明文，HSTS 也就无从谈起）

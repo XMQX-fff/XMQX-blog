@@ -7,17 +7,18 @@
 # 只读方法、禁目录列举、禁穿越/隐藏文件、限请求速率、全套安全响应头。
 
 map $uri $xmqx_blog_cache_control {
-	# 带内容哈希的产物：长期强缓存（Vite 给 /assets 下的文件名都打了内容哈希）
+	# 只有带内容哈希的产物才长期强缓存：文件名变了内容必然变了，immutable 安全。
 	~^/assets/.+\.(?:js|mjs|css|woff2?|png|jpe?g|svg|gif|webp|json)$ "public, max-age=31536000, immutable";
-	# 入口页和 404：绝不缓存，否则更新后用户拿到的还是旧壳
-	# 注意：nginx 的 map 里 "=" 后面不能有空格（`= /x` 会被当成一个空参数），
-	#      这里统一用引号包起来的字符串做精确匹配。
-	"/index.html"                             "no-cache";
-	"/404.html"                               "no-cache";
-	"/hashmap.json"                           "no-cache";
-	"/"                                       "no-cache";
-	# 其余（手写 HTML 文档等）
-	default                                    "public, max-age=600";
+
+	# 其余一律 no-cache（每次都回源校验），包含所有 HTML 页面和 hashmap.json。
+	#
+	# 这里踩过一个坑：原先用 default 给剩下的兜底 max-age=600，结果每个 HTML
+	# 页面都被浏览器缓存 10 分钟。页面里引用的是带哈希的样式表/脚本 URL，
+	# 所以缓存住旧 HTML 就等于把旧资源钉死 —— 新版页面怎么刷都刷不出来，
+	# 排查时特别费劲（服务端确认新 CSS 已经上线，页面却还是老样子）。
+	#
+	# 正确做法就一条：HTML 永远校验，带哈希的静态资源才 immutable。
+	default                                    "no-cache, must-revalidate";
 }
 
 server {
