@@ -10,15 +10,16 @@ map $uri $xmqx_blog_cache_control {
 	# 只有带内容哈希的产物才长期强缓存：文件名变了内容必然变了，immutable 安全。
 	~^/assets/.+\.(?:js|mjs|css|woff2?|png|jpe?g|svg|gif|webp|json)$ "public, max-age=31536000, immutable";
 
-	# 其余一律 no-cache（每次都回源校验），包含所有 HTML 页面和 hashmap.json。
+# 其余一律 no-store（连存都不许存），包含所有 HTML 页面和 hashmap.json。
 	#
-	# 这里踩过一个坑：原先用 default 给剩下的兜底 max-age=600，结果每个 HTML
-	# 页面都被浏览器缓存 10 分钟。页面里引用的是带哈希的样式表/脚本 URL，
-	# 所以缓存住旧 HTML 就等于把旧资源钉死 —— 新版页面怎么刷都刷不出来，
-	# 排查时特别费劲（服务端确认新 CSS 已经上线，页面却还是老样子）。
-	#
-	# 正确做法就一条：HTML 永远校验，带哈希的静态资源才 immutable。
-	default                                    "no-cache, must-revalidate";
+	# 这里踩过两次坑，所以收紧到 no-store 而不是 no-cache：
+	#   1. 原先用 default 兜底 max-age=600，每个 HTML 页面被浏览器缓存 10 分钟。
+	#      页面里引用的是带哈希的样式表/脚本，缓存住旧 HTML 就等于把旧资源钉死。
+	#   2. 改成 no-cache 后仍可能命中已经存下来的旧副本 —— 而旧副本引用的是
+	#      早就被删除的 chunk 哈希，于是站内点击白屏、刷新才正常。
+	# no-store 从根上断掉这条路径。代价只是每次访问重新下几 KB 的 HTML，
+	# 真正占流量的 JS/CSS/字体仍然是 immutable 一年。
+	default                                    "no-store";
 }
 
 server {

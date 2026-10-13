@@ -259,10 +259,10 @@ fi
 cache_of() { curl -s -D - -o /dev/null --max-time 10 "$1" | grep -i '^cache-control' | tr -d '\r' | sed 's/^[Cc]ache-[Cc]ontrol: *//'; }
 for p in / /graphrag/ /graphrag/nano-graphrag-tutorial.html /graphrag/nano-graphrag-source-analysis.html; do
 	cc="$(cache_of "${BASE}${p}")"
-	if [[ "$cc" == no-cache* ]]; then
-		printf '  \033[32mok\033[0m   %-34s %s\n' "HTML 不缓存 ${p}" "$cc"
+	if [[ "$cc" == no-store* ]]; then
+		printf '  \033[32mok\033[0m   %-34s %s\n' "HTML 不存储 ${p}" "$cc"
 	else
-		printf '  \033[31mFAIL\033[0m %-34s %s (HTML 必须 no-cache)\n' "HTML 不缓存 ${p}" "$cc"
+		printf '  \033[31mFAIL\033[0m %-34s %s (HTML 必须 no-store)\n' "HTML 不存储 ${p}" "$cc"
 		fail=1
 	fi
 done
