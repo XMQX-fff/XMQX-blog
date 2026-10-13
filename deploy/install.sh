@@ -77,6 +77,22 @@ leaks="$(find "$STAGING_DIR" \( -name '*.map' -o -name '.env*' -o -name '.git*' 
 [[ -z "$leaks" ]] || die "产物含敏感文件，终止部署：
 $leaks"
 
+# public/ 下的静态 HTML 必须能被站内链接点开。
+# 这里的故障形态很有迷惑性：地址栏直接敲 URL 访问是 200（整页加载），
+# 只有「从页面里点链接」才 404 —— 因为 VitePress 的客户端路由会拦截站内链接做
+# SPA 跳转，只对「资源扩展名」表里的后缀放行真实跳转，而 html 默认不在表里。
+# docs/.env 的 VITE_EXTRA_EXTENSIONS=html 正是为此存在；它一丢就会退化成这个症状。
+log "检查客户端路由配置正确"
+framework="$(ls "$STAGING_DIR"/assets/chunks/framework.*.js 2>/dev/null | head -1)"
+if [[ -z "$framework" ]]; then
+	die "找不到 framework chunk，构建产物异常"
+elif ! grep -q 'VITE_EXTRA_EXTENSIONS)||"[^"]*html' "$framework"; then
+	die "构建产物里 VITE_EXTRA_EXTENSIONS=html 没有生效：
+docs/public 下的 .html 文档会变成「站内点击 404、地址栏访问 200」。
+检查 docs/.env 是否还在、是否被改动。"
+fi
+log "  public 下的静态 HTML 可正常点开"
+
 # ---------------------------------------------------------------- CSP
 log "计算内联脚本哈希"
 CSP_SCRIPT_SRC="$(python3 "$GEN_CSP" "$STAGING_DIR")" || die "CSP 哈希生成失败"
