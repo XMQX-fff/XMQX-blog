@@ -45,17 +45,58 @@ def strip_chrome(body: str) -> str:
     return body.strip()
 
 
-def classify_pre(chunk: str, lang_hint: str) -> str:
-    """判断代码块该标什么语言。
+HEADING_RX = re.compile(r"<(h[1-4])([^>]*)>(.*?)</\1>", re.S | re.I)
+ID_RX = re.compile(r"""\bid=["']([^"']+)["']""")
+TAG_OPEN_RX = re.compile(r"""<(/?)([a-zA-Z][\w-]*)((?:[^>"']|"[^"]*"|'[^']*')*)>""")
 
-    原来这些块是手写 span 上色的，没有语言信息。含 Python 关键字的按 python
-    处理，剩下的是 ASCII 示意图，用 text 免得被高亮成一片彩色。
+
+def slugify(text: str) -> str:
+    """给没有 id 的标题生成锚点。小写、非字母数字换成连字符，兼容中文。"""
+    s = re.sub(r"<[^>]+>", "", text)
+    s = re.sub(r"\s+", "-", s.strip())
+    s = re.sub(r"[^\w\u4e00-\u9fff-]", "", s)
+    return s.strip("-").lower() or "section"
+
+
+def inject_heading_ids(body: str) -> str:
+    """给每个标题注入 id。
+
+    两件事靠它：
+    1. 右侧「本页目录」靠锚点跳转，标题没 id 就跳不动；
+    2. 原页面自己的目录链接指向 <section id="l1"> 这类锚点，沿用它们可以
+       保证老的 #l1 / #s4-1 链接继续有效。
+
+    规则：标题所处的最近一层带 id 的祖先（section/div）优先作为锚点，
+    没有就按标题文本生成一个。
     """
-    text = html_mod.unescape(re.sub(r"<[^>]+>", "", chunk))
-    if lang_hint:
-        return lang_hint
-    py = len(re.findall(r"\b(?:def |class |import |from |return |self|None|True|False|async |await |for |if )\b", text))
-    return "python" if py >= 3 else "text"
+    # 先扫一遍，记下每个标题落在哪个祖先 id 下
+    ancestors: list[str] = []   # 当前打开且带 id 的元素
+    owner: dict[int, str] = {}  # 标题起始位置 -> 锚点
+    for m in TAG_OPEN_RX.finditer(body):
+        closing, tag, attrs = m.group(1), m.group(2).lower(), m.group(3)
+        if closing:
+            if ancestors and ancestors[-1][1] == tag:
+                ancestors.pop()
+            continue
+        mid = ID_RX.search(attrs)
+        if mid:
+            ancestors.append((mid.group(1), tag))
+        elif tag in ("h1", "h2", "h3", "h4"):
+            owner[m.start()] = ancestors[-1][0] if ancestors else ""
+
+    used: set[str] = set()
+
+    def repl(m: re.Match) -> str:
+        tag, attrs, inner = m.group(1).lower(), m.group(2), m.group(3)
+        if ID_RX.search(attrs):
+            return m.group(0)
+        base = owner.get(m.start()) or slugify(inner)
+        if base in used:
+            base = f"{base}-{len(used)}"
+        used.add(base)
+        return f'<{tag} id="{base}"{attrs}>{inner}</{tag}>'
+
+    return HEADING_RX.sub(repl, body)
 
 
 # 用 [^<>]*?（非贪婪）+ 后瞻把闭合引号锚死在「>` 之前。
@@ -82,88 +123,20 @@ def escape_quotes_in_attrs(body: str) -> str:
     )
 
 
-def convert_pres(body: str) -> str:
-    """<pre>...</pre> → 围栏代码块。
-
-    转换后再折叠空行才安全：围栏里的空行是代码内容，不能动。
-    """
-
-    def repl(m: re.Match) -> str:
-        chunk = m.group(1)
-        # 抽出真实文本内容（去掉手写的 span 上色）
-        text = html_mod.unescape(re.sub(r"<[^>]+>", "", chunk))
-        text = text.strip("\n")
-        # 围栏内容里出现 ``` 会提前闭合
-        if "```" in text:
-            fence = "~~~~"
-            if text.count("~~~"):
-                fence = "`````"
-        else:
-            fence = "```"
-        lang = classify_pre(chunk, m.group(2) or "")
-        # 示意图不标语言：标了 text 会在代码块右上角挂一个 "text" 标签，纯噪音。
-        # 不标则 VitePress 不做高亮，只套 .vp-code 的样式，浅色深色都协调。
-        if lang == "text":
-            lang = ""
-        return f"\n\n{fence}{lang}\n{text}\n{fence}\n\n"
-
-    rx = re.compile(r"<pre\b[^>]*data-lang=\"([^\"]*)\"[^>]*>(.*?)</pre>", re.S | re.I)
-    rx2 = re.compile(r"<pre\b[^>]*>(.*?)</pre>", re.S | re.I)
-    body = rx.sub(lambda m: repl(_named(m, m.group(2), m.group(1))), body)
-    body = rx2.sub(lambda m: repl(_named(m, m.group(1), "")), body)
-    return body
-
-
-def _named(m: re.Match, chunk: str, lang: str) -> re.Match:
-    class _P:
-        pass
-
-    p = _P()
-    p.group = lambda i: {1: chunk, 2: lang}[i]
-    return p
-
-
 def collapse_blank_lines(text: str) -> str:
-    """删掉 HTML 区里的所有空行（围栏代码块内的空行要保留）。
+    """删掉正文里的所有空行，让整篇成为一整块不间断的 HTML。
 
-    CommonMark 的 HTML 块（第 6 类）遇到空行就结束，之后的内容会被重新交给
-    markdown 解析。本文档正文里大量出现 * _ [ ` 这些字符，一旦被当成 markdown，
-    下划线会被吃掉、方括号会变成链接。所以正文必须是一整块不间断的 HTML。
+    为什么必须这样：CommonMark 的 HTML 块遇到空行就结束，之后的内容会被重新
+    当成 markdown 解析。本文��正文里大量出现 * _ [ ` 这些字符，一旦被当成
+    markdown，下划线会被吃掉、方括号会变成链接。
 
-    围栏代码块是另一回事：里面的空行是代码内容，必须原样保留，而且围栏前后
-    各留一个空行才能被识别成独立的块。
+    代价是文档里不能混 markdown 块（尤其是代码围栏）——围栏前面必须有空行才能
+    被识别，而那个空行会把 HTML 块截断，截断之后 4 空格缩进的正文行会被 markdown
+    当成「缩进代码块」整段吞进 <pre>。所以代码块保持原生 <pre><code> 标签。
     """
-    out: list[str] = []
-    in_fence = False
-    fence_marker = ""
-
-    for line in text.split("\n"):
-        stripped = line.strip()
-        is_fence = (stripped.startswith("```") or stripped.startswith("~~~")) and not in_fence
-
-        if in_fence:
-            out.append(line)
-            if stripped.startswith(fence_marker):
-                in_fence = False
-            continue
-
-        if is_fence:
-            # 围栏前保证恰好一个空行
-            while out and out[-1] == "":
-                out.pop()
-            out.append("")
-            fence_marker = stripped[:3]
-            in_fence = True
-            out.append(line)
-            continue
-
-        if not stripped:
-            continue  # 正文区的空行一律删掉
-        out.append(line)
-
-    while out and out[-1] == "":
-        out.pop()
-    return "\n".join(out)
+    text = re.sub(r"[ \t]+\n", "\n", text)
+    text = re.sub(r"\n{2,}", "\n", text)
+    return text.strip()
 
 
 def build(title: str, desc: str, lead: str, body: str) -> str:
@@ -194,7 +167,7 @@ def main() -> int:
 
     body = strip_chrome(body)
     body = escape_quotes_in_attrs(body)
-    body = convert_pres(body)
+    body = inject_heading_ids(body)
     body = collapse_blank_lines(body)
 
     dst.write_text(build(title, desc, lead, body), encoding="utf-8")

@@ -9,19 +9,19 @@ outline: [2, 3]
 <p class="mini">v0.0.8.2 · <a href="https://github.com/gusye1234/nano-graphrag">gusye1234/nano-graphrag</a> 源码全量阅读笔记</p>
 <div class="stat-row"><span class="stat-chip">核心 ~2900 行</span> <span class="stat-chip">3 种检索模式</span> <span class="stat-chip">可插拔存储</span></div>
 <section id="s1">
-  <div class="sec-head"><span class="sec-num">01</span><h2>项目概览与设计哲学</h2></div>
+  <div class="sec-head"><span class="sec-num">01</span><h2 id="s1">项目概览与设计哲学</h2></div>
   <p class="sec-lead">nano-graphrag 是微软 GraphRAG 的极简重实现：约 1100 行核心代码（不含测试与 Prompt），保留了图索引 + 社区报告 + 多模式检索的全部核心能力。</p>
   <div class="grid3">
-    <div class="feat"><div class="ico">🧬</div><h4>小而完整</h4><p>剔除官方实现的复杂基建（配置系统、流水线框架、CLI），只保留「文档→知识图谱→社区→检索」这条主干，每一行都可读可改。</p></div>
-    <div class="feat"><div class="ico">🔌</div><h4>全组件可插拔</h4><p>LLM、Embedding、向量库、图存储、KV 存储、分块函数、实体抽取器全部通过 dataclass 字段注入，换组件只改一个参数。</p></div>
-    <div class="feat"><div class="ico">⚡</div><h4>异步优先</h4><p>全链路 asyncio，LLM 并发抽取、嵌入批量并行，用自研轻量限流器（而非 Semaphore）避免 nest_asyncio 依赖。</p></div>
-    <div class="feat"><div class="ico">💾</div><h4>零外部服务依赖</h4><p>默认组合 = JSON 文件 + NetworkX + nano-vectordb，pip install 后无需数据库即可跑通全部功能。</p></div>
-    <div class="feat"><div class="ico">🔁</div><h4>幂等增量写入</h4><p>文档/分块均以 MD5 作为主键，重复插入自动跳过；LLM 响应落盘缓存，相同请求不再计费。</p></div>
-    <div class="feat"><div class="ico">🎯</div><h4>预算感知</h4><p>所有上下文组装都以 token 预算为硬约束，逐项按重要性（度数、权重、评分）排序后截断，保证不超模型窗口。</p></div>
+    <div class="feat"><div class="ico">🧬</div><h4 id="s1-1">小而完整</h4><p>剔除官方实现的复杂基建（配置系统、流水线框架、CLI），只保留「文档→知识图谱→社区→检索」这条主干，每一行都可读可改。</p></div>
+    <div class="feat"><div class="ico">🔌</div><h4 id="s1-2">全组件可插拔</h4><p>LLM、Embedding、向量库、图存储、KV 存储、分块函数、实体抽取器全部通过 dataclass 字段注入，换组件只改一个参数。</p></div>
+    <div class="feat"><div class="ico">⚡</div><h4 id="s1-3">异步优先</h4><p>全链路 asyncio，LLM 并发抽取、嵌入批量并行，用自研轻量限流器（而非 Semaphore）避免 nest_asyncio 依赖。</p></div>
+    <div class="feat"><div class="ico">💾</div><h4 id="s1-4">零外部服务依赖</h4><p>默认组合 = JSON 文件 + NetworkX + nano-vectordb，pip install 后无需数据库即可跑通全部功能。</p></div>
+    <div class="feat"><div class="ico">🔁</div><h4 id="s1-5">幂等增量写入</h4><p>文档/分块均以 MD5 作为主键，重复插入自动跳过；LLM 响应落盘缓存，相同请求不再计费。</p></div>
+    <div class="feat"><div class="ico">🎯</div><h4 id="s1-6">预算感知</h4><p>所有上下文组装都以 token 预算为硬约束，逐项按重要性（度数、权重、评分）排序后截断，保证不超模型窗口。</p></div>
   </div>
   <div class="vs">
     <div class="left">
-      <h4>😩 官方 Microsoft GraphRAG</h4>
+      <h4 id="s1-7">😩 官方 Microsoft GraphRAG</h4>
       <ul>
         <li>多层配置系统 + CLI + 流水线编排</li>
         <li>代码量数万行，学习曲线陡峭</li>
@@ -30,7 +30,7 @@ outline: [2, 3]
       </ul>
     </div>
     <div class="right">
-      <h4>😊 nano-graphrag</h4>
+      <h4 id="s1-8">😊 nano-graphrag</h4>
       <ul>
         <li>单文件主流程，数据类即配置</li>
         <li>核心 ~1100 行，一晚上可通读</li>
@@ -43,7 +43,7 @@ outline: [2, 3]
     完整实现了 <strong>local search</strong> 与 <strong>global search</strong>；省略了 covariates（声明/主张追踪，Prompt 仍保留在 <span class="file-ref">prompt.py</span> 但未接入管线）；global search 的 map-reduce 实现也做了简化。node2vec 节点嵌入接口预留但默认不参与检索。</div>
 </section>
 <section id="s2">
-  <div class="sec-head"><span class="sec-num">02</span><h2>整体架构</h2></div>
+  <div class="sec-head"><span class="sec-num">02</span><h2 id="s2">整体架构</h2></div>
   <p class="sec-lead">整个系统围绕「三类存储 + 两条管线」构建：写入时把文本炼成知识图谱与社区报告，查询时从图与报告中组装上下文交给 LLM 作答。</p>
   <div class="arch">
     <div class="arch-label">分层视图</div>
@@ -79,7 +79,7 @@ outline: [2, 3]
       <div class="arch-box ab-gray">LLM 合成回答<br><small>token 预算内 CSV 上下文</small></div>
     </div>
   </div>
-  <h3>源码地图</h3>
+  <h3 id="s2-10">源码地图</h3>
   <table>
     <tr><th>文件</th><th>行数</th><th>职责</th></tr>
     <tr><td><code class="inline">graphrag.py</code></td><td>382</td><td>主类 GraphRAG：配置、存储装配、insert/query 编排</td></tr>
@@ -94,9 +94,9 @@ outline: [2, 3]
   </table>
 </section>
 <section id="s3">
-  <div class="sec-head"><span class="sec-num">03</span><h2>主入口：GraphRAG 类</h2></div>
+  <div class="sec-head"><span class="sec-num">03</span><h2 id="s3">主入口：GraphRAG 类</h2></div>
   <p class="sec-lead"><span class="file-ref">graphrag.py:52</span> — 一个 @dataclass 承担了「配置中心 + 依赖容器 + 流程编排」三重角色，__post_init__ 完成全部装配。</p>
-  <h3>配置分组一览</h3>
+  <h3 id="s3-12">配置分组一览</h3>
   <table>
     <tr><th>分组</th><th>关键字段</th><th>说明</th></tr>
     <tr><td><span class="tag blue">工作目录</span></td><td><code class="inline">working_dir</code></td><td>所有持久化产物的落盘目录，默认带时间戳自动创建</td></tr>
@@ -109,36 +109,36 @@ outline: [2, 3]
     <tr><td><span class="tag purple">存储</span></td><td><code class="inline">*_storage_cls</code> 三个类字段</td><td>KV / Vector / Graph 后端类，构造时传入 namespace + global_config</td></tr>
     <tr><td><span class="tag blue">LLM 缓存</span></td><td><code class="inline">enable_llm_cache=True</code></td><td>MD5(model, messages) 为键的响应缓存</td></tr>
   </table>
-  <h3>__post_init__ 装配流程</h3>
+  <h3 id="s3-13">__post_init__ 装配流程</h3>
   <div class="steps">
-    <div class="step"><h4>构造 TokenizerWrapper</h4><p>按 <code class="inline">tokenizer_type</code> 选择 tiktoken（gpt-4o）或 HuggingFace tokenizer，统一 encode/decode/decode_batch 接口。</p></div>
-    <div class="step"><h4>供应商适配</h4><p><code class="inline">using_azure_openai</code> / <code class="inline">using_amazon_bedrock</code> 为真时，仅当用户未自定义时才替换默认的 model_func / embedding_func（尊重用户注入）。</p></div>
-    <div class="step"><h4>实例化存储</h4><p>用 <code class="inline">asdict(self)</code> 把整个配置快照传给每个存储的 <code class="inline">global_config</code>——存储实例反向读取配置的约定由此建立。依次创建 full_docs、text_chunks、llm_response_cache、community_reports（KV）与 chunk_entity_relation_graph（Graph）。</p></div>
-    <div class="step"><h4>条件创建向量库</h4><p><code class="inline">enable_local → entities_vdb</code>（meta_fields 只存 entity_name）；<code class="inline">enable_naive_rag → chunks_vdb</code>。</p></div>
-    <div class="step"><h4>函数包装</h4><p>embedding / best_model / cheap_model 全部套上 <code class="inline">limit_async_func_call(max_async)</code> 限流；两个 model_func 再 partial 注入 <code class="inline">hashing_kv=llm_response_cache</code> 完成缓存接线。</p></div>
+    <div class="step"><h4 id="s3-14">构造 TokenizerWrapper</h4><p>按 <code class="inline">tokenizer_type</code> 选择 tiktoken（gpt-4o）或 HuggingFace tokenizer，统一 encode/decode/decode_batch 接口。</p></div>
+    <div class="step"><h4 id="s3-15">供应商适配</h4><p><code class="inline">using_azure_openai</code> / <code class="inline">using_amazon_bedrock</code> 为真时，仅当用户未自定义时才替换默认的 model_func / embedding_func（尊重用户注入）。</p></div>
+    <div class="step"><h4 id="s3-16">实例化存储</h4><p>用 <code class="inline">asdict(self)</code> 把整个配置快照传给每个存储的 <code class="inline">global_config</code>——存储实例反向读取配置的约定由此建立。依次创建 full_docs、text_chunks、llm_response_cache、community_reports（KV）与 chunk_entity_relation_graph（Graph）。</p></div>
+    <div class="step"><h4 id="s3-17">条件创建向量库</h4><p><code class="inline">enable_local → entities_vdb</code>（meta_fields 只存 entity_name）；<code class="inline">enable_naive_rag → chunks_vdb</code>。</p></div>
+    <div class="step"><h4 id="s3-18">函数包装</h4><p>embedding / best_model / cheap_model 全部套上 <code class="inline">limit_async_func_call(max_async)</code> 限流；两个 model_func 再 partial 注入 <code class="inline">hashing_kv=llm_response_cache</code> 完成缓存接线。</p></div>
   </div>
   <div class="note good"><b>同步/异步双接口</b>
     <code class="inline">insert()</code> 与 <code class="inline">query()</code> 是同步壳：通过 <code class="inline">always_get_an_event_loop()</code> 取得（必要时新建）事件循环，再 run_until_complete 调用 ainsert/aquery。这让库既能嵌入 asyncio 应用，也能在普通脚本里直接用。</div>
 </section>
 <section id="s4">
-  <div class="sec-head"><span class="sec-num">04</span><h2>存储抽象层 base.py</h2></div>
+  <div class="sec-head"><span class="sec-num">04</span><h2 id="s4">存储抽象层 base.py</h2></div>
   <p class="sec-lead">整个项目的可扩展性支点：三个抽象基类 + 一套生命周期回调，任何后端只要实现这几个 async 方法即可接入。</p>
   <h3 id="s4-1">4.1 三类存储接口</h3>
   <div class="grid3">
     <div class="feat">
-      <h4><span class="tag blue">KV</span> BaseKVStorage[T]</h4>
+      <h4 id="s4-20"><span class="tag blue">KV</span> BaseKVStorage[T]</h4>
       <p><code class="inline">get_by_id / get_by_ids / filter_keys / upsert / drop</code><br>承载：原始文档、文本分块、LLM 缓存、社区报告。语义即「带命名空间的字典 + 落盘」。</p>
     </div>
     <div class="feat">
-      <h4><span class="tag green">Vector</span> BaseVectorStorage</h4>
+      <h4 id="s4-21"><span class="tag green">Vector</span> BaseVectorStorage</h4>
       <p><code class="inline">upsert(data)</code> 用 value 的 content 字段做嵌入；<code class="inline">query(query, top_k)</code>。字段 embedding_func 与 meta_fields 由基类 dataclass 直接提供。</p>
     </div>
     <div class="feat">
-      <h4><span class="tag purple">Graph</span> BaseGraphStorage</h4>
+      <h4 id="s4-22"><span class="tag purple">Graph</span> BaseGraphStorage</h4>
       <p>单/批节点边的 CRUD + 度数查询 + <code class="inline">clustering()</code> + <code class="inline">community_schema()</code>。批量方法是性能关键：查询期大量并发 gather。</p>
     </div>
   </div>
-  <h4>生命周期回调</h4>
+  <h4 id="s4-23">生命周期回调</h4>
   <p>所有存储继承 <code class="inline">StorageNameSpace</code>，带三个钩子：<code class="inline">index_start_callback</code>（插入前，Neo4j 用它建索引）、<code class="inline">index_done_callback</code>（插入后统一 commit：JSON 落盘、graphml 写出、向量库存盘）、<code class="inline">query_done_callback</code>。GraphRAG 用 asyncio.gather 并发驱动所有存储的回调——这就是「内存中改，结束时一次性写盘」的批式持久化模型。</p>
   <h3 id="s4-2">4.2 默认实现与产物文件</h3>
   <table>
@@ -153,56 +153,45 @@ outline: [2, 3]
     NetworkXStorage 把聚类结果（节点属于哪些 level 的哪个 cluster）以 JSON 字符串塞回节点属性 <code class="inline">clusters</code>，随 graphml 一起持久化——图与社区归属天然一体，<code class="inline">community_schema()</code> 读取时重建「社区 → 节点/边/chunk_ids/occurrence/sub_communities」的完整视图。</div>
 </section>
 <section id="s5">
-  <div class="sec-head"><span class="sec-num">05</span><h2>写入管线（Insert）</h2></div>
+  <div class="sec-head"><span class="sec-num">05</span><h2 id="s5">写入管线（Insert）</h2></div>
   <p class="sec-lead"><span class="file-ref">graphrag.py:277 ainsert</span> — 七步流水线，每步幂等、可重入。</p>
   <div class="steps">
-    <div class="step"><h4>文档去重</h4><p>每篇文档 <code class="inline">compute_mdhash_id(content, "doc-")</code> 作主键；<code class="inline">filter_keys</code> 剔除已存在文档，全部重复则直接返回。</p></div>
-    <div class="step"><h4>分块</h4><p><code class="inline">get_chunks()</code> 先整篇 encode 成 token，再交给 chunk_func 切分；每个分块以内容 MD5（chunk- 前缀）为主键，天然去重。若开启 naive_rag，此时先写入 chunks_vdb。</p></div>
-    <div class="step"><h4>丢弃旧社区报告</h4><p><code class="inline">community_reports.drop()</code>——当前不支持社区的增量更新，每次插入都重建全部报告（这是已知的成本权衡点，代码留有 TODO）。</p></div>
-    <div class="step"><h4>实体关系抽取</h4><p><code class="inline">extract_entities()</code>：LLM 并发抽取每个 chunk → 解析记录 → 按实体名/边对聚合 → 合并进图 → 实体写入向量库。</p></div>
-    <div class="step"><h4>社区聚类</h4><p><code class="inline">chunk_entity_relation_graph.clustering("leiden")</code> 在稳定最大连通分量上跑层级 Leiden，把 (level, cluster) 写回每个节点。</p></div>
-    <div class="step"><h4>生成社区报告</h4><p><code class="inline">generate_community_report()</code> 按层级从细到粗，为每个社区打包实体/边/子报告 → LLM 产出结构化 JSON 报告。</p></div>
-    <div class="step"><h4>提交</h4><p>最后才 upsert full_docs 与 text_chunks——若中途失败，文档不会被标记为已处理，下次 insert 可重试。finally 中所有存储 index_done_callback 统一落盘。</p></div>
+    <div class="step"><h4 id="s5-25">文档去重</h4><p>每篇文档 <code class="inline">compute_mdhash_id(content, "doc-")</code> 作主键；<code class="inline">filter_keys</code> 剔除已存在文档，全部重复则直接返回。</p></div>
+    <div class="step"><h4 id="s5-26">分块</h4><p><code class="inline">get_chunks()</code> 先整篇 encode 成 token，再交给 chunk_func 切分；每个分块以内容 MD5（chunk- 前缀）为主键，天然去重。若开启 naive_rag，此时先写入 chunks_vdb。</p></div>
+    <div class="step"><h4 id="s5-27">丢弃旧社区报告</h4><p><code class="inline">community_reports.drop()</code>——当前不支持社区的增量更新，每次插入都重建全部报告（这是已知的成本权衡点，代码留有 TODO）。</p></div>
+    <div class="step"><h4 id="s5-28">实体关系抽取</h4><p><code class="inline">extract_entities()</code>：LLM 并发抽取每个 chunk → 解析记录 → 按实体名/边对聚合 → 合并进图 → 实体写入向量库。</p></div>
+    <div class="step"><h4 id="s5-29">社区聚类</h4><p><code class="inline">chunk_entity_relation_graph.clustering("leiden")</code> 在稳定最大连通分量上跑层级 Leiden，把 (level, cluster) 写回每个节点。</p></div>
+    <div class="step"><h4 id="s5-30">生成社区报告</h4><p><code class="inline">generate_community_report()</code> 按层级从细到粗，为每个社区打包实体/边/子报告 → LLM 产出结构化 JSON 报告。</p></div>
+    <div class="step"><h4 id="s5-31">提交</h4><p>最后才 upsert full_docs 与 text_chunks——若中途失败，文档不会被标记为已处理，下次 insert 可重试。finally 中所有存储 index_done_callback 统一落盘。</p></div>
   </div>
   <h3 id="s5-1">5.1 文本分块：两种策略</h3>
   <p><strong>chunking_by_token_size</strong>（默认）：滑动窗口硬切，步长 = max_token_size - overlap_token_size。简单、与语义无关，胜在可预测。</p>
-
-```
-# _op.py:31 — 滑动窗口
+  <pre><span class="cm"># _op.py:31 — 滑动窗口</span>
 for start in range(0, len(tokens), max_token_size - overlap_token_size):
     chunk_token.append(tokens[start : start + max_token_size])
-    lengths.append(min(max_token_size, len(tokens) - start))
-```
+    lengths.append(min(max_token_size, len(tokens) - start))</pre>
   <p><strong>chunking_by_seperators</strong>：先用 <code class="inline">SeparatorSplitter</code> 按多级分隔符（段落 → 换行 → 中英文句号/感叹/问号 → 空白，见 prompt.py 的 default_text_separator）切出原子片段，再贪心合并到 chunk_size，并对相邻 chunk 强制注入 overlap——切点落在自然边界，对下游抽取更友好。分隔符本身也被 encode 成 token 序列在 token 空间匹配。</p>
   <h3 id="s5-2">5.2 实体关系抽取 extract_entities</h3>
   <p>这是与 LLM 交互最密集的环节，设计上有四个值得注意的机制：</p>
-  <h4>① 约定式文本协议（而非 JSON）</h4>
+  <h4 id="s5-32">① 约定式文本协议（而非 JSON）</h4>
   <p>Prompt 要求 LLM 输出用三种分隔符编码的记录流：</p>
-
-```
-("entity"<|>"ALEX"<|>"PERSON"<|>"Alex is a character who...")##
-("relationship"<|>"ALEX"<|>"TAYLOR"<|>"Alex is affected by..."<|>7)<|COMPLETE|>
-
-# tuple_delimiter=<|>  record_delimiter=##  completion_delimiter=<|COMPLETE|>
-```
+  <pre><span class="s">("entity"&lt;|&gt;"ALEX"&lt;|&gt;"PERSON"&lt;|&gt;"Alex is a character who...")</span><span class="k">##</span>
+<span class="s">("relationship"&lt;|&gt;"ALEX"&lt;|&gt;"TAYLOR"&lt;|&gt;"Alex is affected by..."&lt;|&gt;7)</span><span class="k">&lt;|COMPLETE|&gt;</span>
+<span class="cm"># tuple_delimiter=&lt;|&gt;  record_delimiter=##  completion_delimiter=&lt;|COMPLETE|&gt;</span></pre>
   <p>元组首字段区分实体/关系；解析时正则 <code class="inline">r"\((.*)\)"</code> 取括号内内容再按 tuple_delimiter 切分。相比 JSON，这种协议对开源模型更鲁棒（不易被截断成非法 JSON）。</p>
-  <h4>② Gleaning（补抽循环）</h4>
+  <h4 id="s5-33">② Gleaning（补抽循环）</h4>
   <p>首轮抽取后，追加发送「MANY entities were missed...」继续提示，让 LLM 补充遗漏；并可选地再问一句「还有遗漏吗？YES/NO」决定是否继续。<code class="inline">entity_extract_max_gleaning</code> 控制最大补抽轮数（默认 1）。多轮对话历史通过 <code class="inline">pack_user_ass_to_openai_messages</code> 拼接维护。</p>
-  <h4>③ 全 chunk 并发 + 全局聚合</h4>
-
-```
-# 所有 chunk 的抽取在限流器约束下并发
-results = await asyncio.gather(*[_process_single_content(c) for c in ordered_chunks])
-
-# 跨 chunk 聚合：同名实体收拢；无向图——边键统一 sorted(tuple)
-maybe_edges[tuple(sorted(k))].extend(v)
-```
-  <h4>④ 记录级校验</h4>
+  <h4 id="s5-34">③ 全 chunk 并发 + 全局聚合</h4>
+  <pre><span class="cm"># 所有 chunk 的抽取在限流器约束下并发</span>
+results = <span class="k">await</span> asyncio.gather(*[_process_single_content(c) <span class="k">for</span> c <span class="k">in</span> ordered_chunks])
+<span class="cm"># 跨 chunk 聚合：同名实体收拢；无向图——边键统一 sorted(tuple)</span>
+maybe_edges[tuple(sorted(k))].extend(v)</pre>
+  <h4 id="s5-35">④ 记录级校验</h4>
   <p><code class="inline">_handle_single_entity_extraction</code> 要求至少 4 个字段且首字段为 "entity"；关系要求 5 字段，权重字段用 <code class="inline">is_float_regex</code> 校验，不合法则回退 1.0。实体名/类型统一 <code class="inline">clean_str + upper()</code> 保证图内实体命名一致（这是合并正确性的基石）。</p>
   <h3 id="s5-3">5.3 合并与去重：_merge_nodes / _merge_edges</h3>
   <div class="grid2">
     <div class="card">
-      <h4 style="margin-top:0">节点合并 <span class="file-ref">_op.py:182</span></h4>
+      <h4 id="s5-36" style="margin-top:0">节点合并 <span class="file-ref">_op.py:182</span></h4>
       <ul class="plain" style="font-size:13.5px; margin-bottom:0">
         <li><strong>entity_type</strong>：新旧类型一起做 Counter 投票，取众数</li>
         <li><strong>description</strong>：去重后按字典序用 <code class="inline">&lt;SEP&gt;</code> 拼接</li>
@@ -211,7 +200,7 @@ maybe_edges[tuple(sorted(k))].extend(v)
       </ul>
     </div>
     <div class="card">
-      <h4 style="margin-top:0">边合并 <span class="file-ref">_op.py:230</span></h4>
+      <h4 id="s5-37" style="margin-top:0">边合并 <span class="file-ref">_op.py:230</span></h4>
       <ul class="plain" style="font-size:13.5px; margin-bottom:0">
         <li><strong>weight 累加</strong>：多次独立提及视为更强关联</li>
         <li><strong>order 取 min</strong>：直接关系优先于间接关系</li>
@@ -225,36 +214,33 @@ maybe_edges[tuple(sorted(k))].extend(v)
   <h3 id="s5-4">5.4 Leiden 社区聚类</h3>
   <p>NetworkX 路径（<span class="file-ref">gdb_networkx.py:230</span>）：</p>
   <div class="steps">
-    <div class="step"><h4>稳定最大连通分量</h4><p><code class="inline">stable_largest_connected_component</code>：取 LCC 后对节点与边做确定性排序重建图（并把节点名统一 upper+unescape）——保证同一张图每次跑出的聚类可复现（random_seed 固定 0xDEADBEEF）。</p></div>
-    <div class="step"><h4>层级 Leiden</h4><p>graspologic 的 <code class="inline">hierarchical_leiden</code>，max_cluster_size=10，产出多层社区划分。</p></div>
-    <div class="step"><h4>回写节点</h4><p>每个节点得到 <code class="inline">clusters = [{"level":0,"cluster":12}, {"level":1,"cluster":45}, ...]</code> 的 JSON 属性。</p></div>
+    <div class="step"><h4 id="s5-38">稳定最大连通分量</h4><p><code class="inline">stable_largest_connected_component</code>：取 LCC 后对节点与边做确定性排序重建图（并把节点名统一 upper+unescape）——保证同一张图每次跑出的聚类可复现（random_seed 固定 0xDEADBEEF）。</p></div>
+    <div class="step"><h4 id="s5-39">层级 Leiden</h4><p>graspologic 的 <code class="inline">hierarchical_leiden</code>，max_cluster_size=10，产出多层社区划分。</p></div>
+    <div class="step"><h4 id="s5-40">回写节点</h4><p>每个节点得到 <code class="inline">clusters = [{"level":0,"cluster":12}, {"level":1,"cluster":45}, ...]</code> 的 JSON 属性。</p></div>
   </div>
   <p><code class="inline">community_schema()</code> 随后重建社区视图：遍历所有节点的 clusters，聚合每个社区的节点集、边集、chunk_ids；<strong>occurrence = 社区 chunk 数 / 全图最大社区 chunk 数</strong>（衡量社区覆盖语料的广度）；跨层通过节点集包含关系推导 <code class="inline">sub_communities</code>。Neo4j 版本则用 GDS 的 <code class="inline">gds.leiden.write</code> 把 communityIds 写回节点属性，逻辑同构。</p>
   <h3 id="s5-5">5.5 社区报告生成：层级化 + 预算打包</h3>
   <p><span class="file-ref">_op.py:625 generate_community_report</span> 是全文最精巧的函数之一。</p>
-  <h4>按层级从细到粗生成</h4>
-
-```python
-for level in sorted(set(levels), reverse=True):   # level 2 → 1 → 0（细 → 粗）
-    this_level_reports = await asyncio.gather(*[
-        _form_single_community_report(c, community_datas) for c in this_level])
-    community_datas.update(...)  # 细社区的报告会喂给粗社区当输入
-```
+  <h4 id="s5-41">按层级从细到粗生成</h4>
+  <pre><span class="k">for</span> level <span class="k">in</span> sorted(set(levels), reverse=<span class="k">True</span>):   <span class="cm"># level 2 → 1 → 0（细 → 粗）</span>
+    this_level_reports = <span class="k">await</span> asyncio.gather(*[
+        _form_single_community_report(c, community_datas) <span class="k">for</span> c <span class="k">in</span> this_level])
+    community_datas.update(...)  <span class="cm"># 细社区的报告会喂给粗社区当输入</span></pre>
   <p>粗社区的描述里可以引用子社区的报告摘要——形成自下而上的信息浓缩层级。</p>
-  <h4>_pack_single_community_describe 的预算分配术</h4>
+  <h4 id="s5-42">_pack_single_community_describe 的预算分配术</h4>
   <div class="steps">
-    <div class="step"><h4>触发子社区打包（启发式）</h4><p>当节点数或边数 &gt; 100 且存在子社区报告时，优先用子社区报告的 CSV 摘要（按 occurrence 降序截断）替代原始节点边明细；剩余预算继续用于装填未被子社区覆盖的节点边。<code class="inline">force_to_use_sub_communities</code> 可强制开启。</p></div>
-    <div class="step"><h4>去重过滤</h4><p>已被子社区报告覆盖的节点/边从明细中过滤，避免重复占用 token。</p></div>
-    <div class="step"><h4>按重要性排序</h4><p>节点按度数、边按 edge_degree（两端度数和）降序排序——最重要的结构信息排在前面。</p></div>
-    <div class="step"><h4>动态预算切分</h4><p>剩余预算扣除 CSV 表头开销后，按节点/边条目数比例 node_ratio 分配各自 token 配额，再用 truncate_list_by_token_size 各自截断。三段（子报告 / 实体 / 关系）拼进固定模板。</p></div>
+    <div class="step"><h4 id="s5-43">触发子社区打包（启发式）</h4><p>当节点数或边数 &gt; 100 且存在子社区报告时，优先用子社区报告的 CSV 摘要（按 occurrence 降序截断）替代原始节点边明细；剩余预算继续用于装填未被子社区覆盖的节点边。<code class="inline">force_to_use_sub_communities</code> 可强制开启。</p></div>
+    <div class="step"><h4 id="s5-44">去重过滤</h4><p>已被子社区报告覆盖的节点/边从明细中过滤，避免重复占用 token。</p></div>
+    <div class="step"><h4 id="s5-45">按重要性排序</h4><p>节点按度数、边按 edge_degree（两端度数和）降序排序——最重要的结构信息排在前面。</p></div>
+    <div class="step"><h4 id="s5-46">动态预算切分</h4><p>剩余预算扣除 CSV 表头开销后，按节点/边条目数比例 node_ratio 分配各自 token 配额，再用 truncate_list_by_token_size 各自截断。三段（子报告 / 实体 / 关系）拼进固定模板。</p></div>
   </div>
-  <h4>报告 Schema</h4>
+  <h4 id="s5-47">报告 Schema</h4>
   <p>LLM 以 JSON 返回：title / summary / rating(0-10) / rating_explanation / findings(5-10 条 summary+explanation)。<code class="inline">_community_report_json_to_str</code> 再把 JSON 渲染成 Markdown 报告字符串，两份都存进 community_reports KV。rating 在 global 查询里充当过滤与排序信号。</p>
   <div class="note warn"><b>成本敏感点</b>
     社区报告使用 <strong>best_model</strong>（贵模型）且每次 insert 全量重建。缓解手段：LLM 缓存（相同社区内容不重复计费）、cheap model 摘要、以及分块大小控制社区规模。插入大语料前建议先评估预算。</div>
 </section>
 <section id="s6">
-  <div class="sec-head"><span class="sec-num">06</span><h2>查询管线（Query）</h2></div>
+  <div class="sec-head"><span class="sec-num">06</span><h2 id="s6">查询管线（Query）</h2></div>
   <p class="sec-lead">QueryParam.mode 决定三种检索路径，共享同一套 token 预算与「CSV 上下文注入」的回答风格。</p>
   <table>
     <tr><th>模式</th><th>入口</th><th>适用问题</th><th>核心数据源</th></tr>
@@ -288,15 +274,15 @@ for level in sorted(set(levels), reverse=True):   # level 2 → 1 → 0（细 �
     QueryParam.only_need_context=True 时跳过 LLM，直接返回组装好的上下文（CSV 或要点文本）。适合调试检索质量、或把 nano-graphrag 当纯检索组件嵌入其他系统。</div>
   <h3 id="s6-2">6.2 global 模式：社区报告上的 Map-Reduce</h3>
   <div class="steps">
-    <div class="step"><h4>筛选社区</h4><p>level ≤ param.level 的社区，按 occurrence 降序取前 <code class="inline">global_max_consider_community</code>(512) 个，加载报告后按 rating ≥ 阈值过滤，再按 (occurrence, rating) 排序。</p></div>
-    <div class="step"><h4>Map：分组并行找要点</h4><p>报告按 token 预算（global_max_token_for_community_report=16384）切分为多个组，每组一次 LLM 调用（global_map_rag_points，强制 JSON 输出），产出带 0-100 重要性评分的要点列表。各组并行，相当于多个「分析师」各自审读一部分社区。</p></div>
-    <div class="step"><h4>要点聚合</h4><p>所有组的要点拍平，过滤 score ≤ 0，按 score 降序，再按 token 预算截断保留最重要的要点。</p></div>
-    <div class="step"><h4>Reduce：合成最终回答</h4><p>把「按重要性降序排列的分析师要点」交给 global_reduce_rag_response 提示词，LLM 综合去重、按要求格式输出最终回答。</p></div>
+    <div class="step"><h4 id="s6-49">筛选社区</h4><p>level ≤ param.level 的社区，按 occurrence 降序取前 <code class="inline">global_max_consider_community</code>(512) 个，加载报告后按 rating ≥ 阈值过滤，再按 (occurrence, rating) 排序。</p></div>
+    <div class="step"><h4 id="s6-50">Map：分组并行找要点</h4><p>报告按 token 预算（global_max_token_for_community_report=16384）切分为多个组，每组一次 LLM 调用（global_map_rag_points，强制 JSON 输出），产出带 0-100 重要性评分的要点列表。各组并行，相当于多个「分析师」各自审读一部分社区。</p></div>
+    <div class="step"><h4 id="s6-51">要点聚合</h4><p>所有组的要点拍平，过滤 score ≤ 0，按 score 降序，再按 token 预算截断保留最重要的要点。</p></div>
+    <div class="step"><h4 id="s6-52">Reduce：合成最终回答</h4><p>把「按重要性降序排列的分析师要点」交给 global_reduce_rag_response 提示词，LLM 综合去重、按要求格式输出最终回答。</p></div>
   </div>
   <p>与官方实现的差异：官方是「每个社区一个分析师 + 投票排序」的多分析师框架；nano 简化为「按 token 分组的并行 map + 全局 score 排序 reduce」，调用次数更少、逻辑更直白，效果在多数场景足够。</p>
   <h3 id="s6-3">6.3 naive 模式：最朴素的向量 RAG</h3>
   <p>chunks_vdb 向量检索 top_k 分块 → 取回原文 → token 截断 → 用 <code class="inline">--New Chunk--</code> 拼接 → naive_rag_response 提示词作答。价值在于提供一条<strong>无图基线</strong>：同一语料下对比 local/global/naive 的效果，量化知识图谱带来的增益（examples/benchmarks 里即用此思路）。</p>
-  <h3>QueryParam 预算总表</h3>
+  <h3 id="s6-53">QueryParam 预算总表</h3>
   <table>
     <tr><th>字段</th><th>默认值</th><th>作用域</th></tr>
     <tr><td><code class="inline">level</code></td><td>2</td><td>local/global 允许引用的社区层级上限（0 最粗）</td></tr>
@@ -311,30 +297,23 @@ for level in sorted(set(levels), reverse=True):   # level 2 → 1 → 0（细 �
   <p class="muted" style="font-size:13px">设计模式：local 的三路预算 4000+4800+3200 ≈ 12000 tokens，加上实体表与提示词模板正好填满一个 16k 级模型的舒适区——预算是显式工程，不是碰运气。</p>
 </section>
 <section id="s7">
-  <div class="sec-head"><span class="sec-num">07</span><h2>LLM 调用层 _llm.py</h2></div>
+  <div class="sec-head"><span class="sec-num">07</span><h2 id="s7">LLM 调用层 _llm.py</h2></div>
   <p class="sec-lead">对多家供应商的统一 async 封装，核心是三件事：单例客户端、指数退避重试、基于内容哈希的响应缓存。</p>
-  <h3>统一函数签名</h3>
-
-```python
-async def openai_complete_if_cache(model, prompt, system_prompt=None, history_messages=[], **kwargs) -> str
-```
+  <h3 id="s7-55">统一函数签名</h3>
+  <pre><span class="k">async def</span> <span class="c">openai_complete_if_cache</span>(model, prompt, system_prompt=<span class="k">None</span>, history_messages=[], **kwargs) -> str</pre>
   <p>所有 complete 函数遵循同一签名：<code class="inline">prompt + system_prompt + history_messages → str</code>。kwargs 里弹出 <code class="inline">hashing_kv</code>（由 GraphRAG 在装配时 partial 注入）。基于此，<code class="inline">create_amazon_bedrock_complete_function(model_id)</code> 用工厂模式为任意 Bedrock 模型动态生成符合签名的函数——这正是「换 LLM 只改一个字段」的实现基础。</p>
-  <h3>LLM 缓存机制</h3>
-
-```python
-# 1. 组装 messages 后算哈希
-args_hash = compute_args_hash(model, messages)          # md5(str((model, messages)))
-if_cache_return = await hashing_kv.get_by_id(args_hash)
-if if_cache_return is not None:
-    return if_cache_return["return"]                    # 命中：零成本返回
-
-# 2. 未命中：调 API，写回缓存并立即落盘
-response = await openai_async_client.chat.completions.create(...)
-await hashing_kv.upsert({args_hash: {"return": ..., "model": model}})
-await hashing_kv.index_done_callback()
-```
+  <h3 id="s7-56">LLM 缓存机制</h3>
+  <pre><span class="cm"># 1. 组装 messages 后算哈希</span>
+args_hash = compute_args_hash(model, messages)          <span class="cm"># md5(str((model, messages)))</span>
+if_cache_return = <span class="k">await</span> hashing_kv.get_by_id(args_hash)
+<span class="k">if</span> if_cache_return <span class="k">is not None</span>:
+    <span class="k">return</span> if_cache_return[<span class="s">"return"</span>]                    <span class="cm"># 命中：零成本返回</span>
+<span class="cm"># 2. 未命中：调 API，写回缓存并立即落盘</span>
+response = <span class="k">await</span> openai_async_client.chat.completions.create(...)
+<span class="k">await</span> hashing_kv.upsert({args_hash: {<span class="s">"return"</span>: ..., <span class="s">"model"</span>: model}})
+<span class="k">await</span> hashing_kv.index_done_callback()</pre>
   <p>缓存粒度是「完整 messages 列表」——相同的抽取 prompt、相同的社区内容在重复 insert 时完全免费。这也解释了为什么「丢弃旧社区报告后重跑」在语料不变时成本趋近于零。</p>
-  <h3>重试与容错</h3>
+  <h3 id="s7-57">重试与容错</h3>
   <ul class="plain">
     <li>tenacity 装饰器：RateLimitError / APIConnectionError 时最多重试 5 次，指数退避 4~10 秒。</li>
     <li>全局单例客户端（get_openai_async_client_instance 等）避免重复建连。</li>
@@ -342,31 +321,31 @@ await hashing_kv.index_done_callback()
   </ul>
 </section>
 <section id="s8">
-  <div class="sec-head"><span class="sec-num">08</span><h2>工具库 _utils.py</h2></div>
+  <div class="sec-head"><span class="sec-num">08</span><h2 id="s8">工具库 _utils.py</h2></div>
   <p class="sec-lead">305 行里藏着六个支撑全局的设计，逐一拆解：</p>
   <div class="grid2">
     <div class="card">
-      <h4 style="margin-top:0">1. TokenizerWrapper</h4>
+      <h4 id="s8-59" style="margin-top:0">1. TokenizerWrapper</h4>
       <p style="font-size:13.5px; color:var(--muted)">tiktoken 与 HuggingFace tokenizer 的统一适配器，懒加载；<code class="inline">decode_batch</code> 对 HF 走 batch_decode 提速。整个系统的 token 预算计算全部经过它，换 tokenizer 不影响任何调用方。</p>
     </div>
     <div class="card">
-      <h4 style="margin-top:0">2. truncate_list_by_token_size</h4>
+      <h4 id="s8-60" style="margin-top:0">2. truncate_list_by_token_size</h4>
       <p style="font-size:13.5px; color:var(--muted)">按序累加 key(data) 的 token 数，超预算即截断返回前缀。因为输入列表都已按重要性排序，「前缀截断」=「保留最重要的」。每项 +1 的防御性补偿模拟换行拼接开销。全文出现 10+ 次，是预算感知的总开关。</p>
     </div>
     <div class="card">
-      <h4 style="margin-top:0">3. compute_mdhash_id / compute_args_hash</h4>
+      <h4 id="s8-61" style="margin-top:0">3. compute_mdhash_id / compute_args_hash</h4>
       <p style="font-size:13.5px; color:var(--muted)">内容寻址的根基：doc-/chunk-/ent- 前缀 + MD5。相同内容永远映射到相同 ID，让去重、增量、缓存三件事共享同一套机制。</p>
     </div>
     <div class="card">
-      <h4 style="margin-top:0">4. limit_async_func_call</h4>
+      <h4 id="s8-62" style="margin-top:0">4. limit_async_func_call</h4>
       <p style="font-size:13.5px; color:var(--muted)">自研并发限流：nonlocal 计数器 + while sleep 自旋，达到 max_size 后新调用排队。作者注释明说：不用 asyncio.Semaphore 是为了避免嵌套事件循环场景下的兼容问题——朴素但稳。</p>
     </div>
     <div class="card">
-      <h4 style="margin-top:0">5. convert_response_to_json</h4>
+      <h4 id="s8-63" style="margin-top:0">5. convert_response_to_json</h4>
       <p style="font-size:13.5px; color:var(--muted)">JSON 容错三连击：先用栈式扫描提取第一个完整平衡的 {...} 严格解析；失败则退化为正则启发式抽取 key:value（容忍无引号、嵌套对象）；再失败记错误返回 None。开源模型输出不稳时的救命稻草，且作为 <code class="inline">convert_response_to_json_func</code> 字段可整体替换。</p>
     </div>
     <div class="card">
-      <h4 style="margin-top:0">6. list_of_list_to_csv / enclose_string_with_quotes</h4>
+      <h4 id="s8-64" style="margin-top:0">6. list_of_list_to_csv / enclose_string_with_quotes</h4>
       <p style="font-size:13.5px; color:var(--muted)">把二维表渲染成 LLM 友好的 CSV：数字不加引号、字符串加引号并把内部引号翻倍转义，分隔符用「逗号+tab」。所有上下文注入（查询、社区打包）统一走这里，格式高度一致。</p>
     </div>
   </div>
@@ -374,7 +353,7 @@ await hashing_kv.index_done_callback()
     参考官方 GraphRAG：html.unescape + 删除控制字符。配合抽取阶段的 upper()，保证 "Alex" / "ALEX " / "Alex\r" 在图中是同一个节点——实体合并正确性的第一道防线。</div>
 </section>
 <section id="s9">
-  <div class="sec-head"><span class="sec-num">09</span><h2>Prompt 工程 prompt.py</h2></div>
+  <div class="sec-head"><span class="sec-num">09</span><h2 id="s9">Prompt 工程 prompt.py</h2></div>
   <p class="sec-lead">520 行 Prompt 全部移植自微软 GraphRAG，集中在一个 PROMPTS 字典里，运行时可整体覆盖——魔改行为最经济的入口。</p>
   <table>
     <tr><th>Key</th><th>用途</th><th>消费方</th></tr>
@@ -387,7 +366,7 @@ await hashing_kv.index_done_callback()
     <tr><td><code class="inline">naive_rag_response</code></td><td>naive 查询的系统提示</td><td>naive_query</td></tr>
     <tr><td><code class="inline">claim_extraction</code></td><td>声明抽取（<strong>未接入管线</strong>，covariates 的遗留）</td><td>—</td></tr>
   </table>
-  <h4>Prompt 设计的三个共性</h4>
+  <h4 id="s9-66">Prompt 设计的三个共性</h4>
   <ul class="plain">
     <li><strong>Grounding 规则反复强调</strong>：「Do not include information where the supporting evidence for it is not provided」「Do not make anything up」在每个回答类提示里至少出现两次（目标段前后各一次）——抗幻觉的提示层手段。</li>
     <li><strong>目标长度/格式二次注入</strong>：{response_type} 在提示头尾各出现一次，强化格式遵循。</li>
@@ -395,15 +374,15 @@ await hashing_kv.index_done_callback()
   </ul>
 </section>
 <section id="s10">
-  <div class="sec-head"><span class="sec-num">10</span><h2>DSPy 扩展抽取器</h2></div>
+  <div class="sec-head"><span class="sec-num">10</span><h2 id="s10">DSPy 扩展抽取器</h2></div>
   <p class="sec-lead"><span class="file-ref">entity_extraction/</span> — 可选的「类型化抽取」替代路径：用 DSPy Signature + Pydantic 模型取代文本协议解析。</p>
   <div class="grid2">
     <div class="card">
-      <h4 style="margin-top:0">默认路径：Prompt + 文本协议</h4>
+      <h4 id="s10-68" style="margin-top:0">默认路径：Prompt + 文本协议</h4>
       <p style="font-size:13.5px; color:var(--muted)">extract_entities：LLM 输出分隔符记录流 → 正则解析。优点是零额外依赖、对弱模型友好；缺点是解析失败只能丢弃该记录，schema 约束靠 Prompt「祈祷」。</p>
     </div>
     <div class="card">
-      <h4 style="margin-top:0">DSPy 路径：Signature + 自反思</h4>
+      <h4 id="s10-69" style="margin-top:0">DSPy 路径：Signature + 自反思</h4>
       <p style="font-size:13.5px; color:var(--muted)">extract_entities_dspy：CombinedExtraction 签名声明输入输出类型（list[Entity] / list[Relationship]，Pydantic 强约束 importance_score∈[0,1]、order∈[1,3]）；可选 self_refine 循环 = Critique（批评）→ Refine（精炼）迭代改进。通过 entity_extraction_func 字段注入。</p>
     </div>
   </div>
@@ -412,7 +391,7 @@ await hashing_kv.index_done_callback()
     默认路径适合快速上手与 OpenAI 系模型；DSPy 路径适合：需要稳定 schema（下游程序化消费抽取结果）、愿意为 self_refine 付出额外调用、或想用 DSPy 的编译/评估生态持续优化抽取质量。</div>
 </section>
 <section id="s11">
-  <div class="sec-head"><span class="sec-num">11</span><h2>关键设计决策总结</h2></div>
+  <div class="sec-head"><span class="sec-num">11</span><h2 id="s11">关键设计决策总结</h2></div>
   <p class="sec-lead">通读全部源码后，值得带走的八个设计决策：</p>
   <table>
     <tr><th>#</th><th>决策</th><th>动机与效果</th></tr>
@@ -425,7 +404,7 @@ await hashing_kv.index_done_callback()
     <tr><td>7</td><td><strong>社区层级复用</strong></td><td>聚类层级 = 报告生成顺序 = 查询过滤维度；粗社区引用细社区报告，同一层级结构服务索引与检索两端，信息零浪费。</td></tr>
     <tr><td>8</td><td><strong>自研限流而非 Semaphore</strong></td><td>牺牲一点优雅换取事件循环兼容性（嵌套 loop、Jupyter、子线程场景）；与 always_get_an_event_loop 一起构成「到处能跑」的异步策略。</td></tr>
   </table>
-  <h4>已知局限</h4>
+  <h4 id="s11-71">已知局限</h4>
   <ul class="plain">
     <li>社区报告不支持增量更新，每次 insert 全量重建（有 LLM 缓存兜底，但聚类本身会重算）。</li>
     <li>covariates（claim 追踪）只有 Prompt 残留，功能未实现。</li>
@@ -435,15 +414,15 @@ await hashing_kv.index_done_callback()
   </ul>
 </section>
 <section id="s12">
-  <div class="sec-head"><span class="sec-num">12</span><h2>源码阅读路线图</h2></div>
+  <div class="sec-head"><span class="sec-num">12</span><h2 id="s12">源码阅读路线图</h2></div>
   <p class="sec-lead">如果你要亲自读一遍，推荐这条 90 分钟路径：</p>
   <div class="steps">
-    <div class="step"><h4>15 分钟 · 主干</h4><p><code class="inline">graphrag.py</code> 全文：只看 GraphRAG 类的字段列表、__post_init__、ainsert、aquery。建立「配置→存储→流程」的骨架认知。</p></div>
-    <div class="step"><h4>10 分钟 · 契约</h4><p><code class="inline">base.py</code>：三个抽象类的方法签名 + QueryParam + TextChunkSchema/CommunitySchema。此后读任何实现都有地图。</p></div>
-    <div class="step"><h4>35 分钟 · 算法核心</h4><p><code class="inline">_op.py</code> 按写入顺序读：chunking_by_token_size → extract_entities → _merge_nodes/edges → generate_community_report（重点看 _pack_single_community_describe）；再读 local_query 链路。global/naive 可略读。</p></div>
-    <div class="step"><h4>15 分钟 · 支撑件</h4><p><code class="inline">_utils.py</code> 的 TokenizerWrapper、truncate_list_by_token_size、limit_async_func_call、convert_response_to_json；<code class="inline">_llm.py</code> 的 openai_complete_if_cache。</p></div>
-    <div class="step"><h4>10 分钟 · 存储实现</h4><p><code class="inline">kv_json.py</code>（最简单，46 行）→ <code class="inline">vdb_nanovectordb.py</code> → <code class="inline">gdb_networkx.py</code> 的 clustering 与 community_schema 两段。</p></div>
-    <div class="step"><h4>5 分钟 · 跑一遍</h4><p>用 examples/no_openai_key_at_all.py 或接自己的 LLM 跑通 insert + 三种 query，观察 working_dir 下的产物文件——把代码与磁盘形态对上，理解闭环。</p></div>
+    <div class="step"><h4 id="s12-73">15 分钟 · 主干</h4><p><code class="inline">graphrag.py</code> 全文：只看 GraphRAG 类的字段列表、__post_init__、ainsert、aquery。建立「配置→存储→流程」的骨架认知。</p></div>
+    <div class="step"><h4 id="s12-74">10 分钟 · 契约</h4><p><code class="inline">base.py</code>：三个抽象类的方法签名 + QueryParam + TextChunkSchema/CommunitySchema。此后读任何实现都有地图。</p></div>
+    <div class="step"><h4 id="s12-75">35 分钟 · 算法核心</h4><p><code class="inline">_op.py</code> 按写入顺序读：chunking_by_token_size → extract_entities → _merge_nodes/edges → generate_community_report（重点看 _pack_single_community_describe）；再读 local_query 链路。global/naive 可略读。</p></div>
+    <div class="step"><h4 id="s12-76">15 分钟 · 支撑件</h4><p><code class="inline">_utils.py</code> 的 TokenizerWrapper、truncate_list_by_token_size、limit_async_func_call、convert_response_to_json；<code class="inline">_llm.py</code> 的 openai_complete_if_cache。</p></div>
+    <div class="step"><h4 id="s12-77">10 分钟 · 存储实现</h4><p><code class="inline">kv_json.py</code>（最简单，46 行）→ <code class="inline">vdb_nanovectordb.py</code> → <code class="inline">gdb_networkx.py</code> 的 clustering 与 community_schema 两段。</p></div>
+    <div class="step"><h4 id="s12-78">5 分钟 · 跑一遍</h4><p>用 examples/no_openai_key_at_all.py 或接自己的 LLM 跑通 insert + 三种 query，观察 working_dir 下的产物文件——把代码与磁盘形态对上，理解闭环。</p></div>
   </div>
   <div class="note good"><b>一句话总结</b>
     nano-graphrag 用「可插拔存储抽象 + 内容寻址幂等 + token 预算治理 + 层级社区报告」四根柱子，把微软 GraphRAG 的方法论压缩进 1100 行可运行的教学级实现——它最好的用法不仅是使用，更是当作 GraphRAG 的可执行论文来读。</div>

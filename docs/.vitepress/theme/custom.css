@@ -316,6 +316,28 @@
 .vp-doc ul.plain { padding-left: 20px; }
 .vp-doc ul.plain li { margin: 5px 0; }
 
+/* ---------- 代码块内的语法着色 ----------
+ * 这两页的代码块保留原文件手写的 span 标注（.k 关键字 / .s 字符串 /
+ * .cm 注释 / .c 函数），而不是交给 Shiki —— 因为整篇必须是一整块不间断的
+ * HTML，里面不能再插 markdown 代码围栏（围栏前的空行会截断 HTML 块，
+ * 之后 4 空格缩进的正文行会被 markdown 当成缩进代码块整段吞掉）。
+ *
+ * 颜色给浅色/深色两套，跟随主题切换；原来那套只按深色底调的，主题浅色
+ * 代码块下几乎看不清。
+ */
+.vp-doc pre code .k { color: #7c3aed; font-weight: 600; }
+.vp-doc pre code .s { color: #0a7d51; }
+.vp-doc pre code .c { color: #0369a1; }
+.vp-doc pre code .cm { color: #94a3b8; font-style: italic; }
+.vp-doc pre code .n { color: #b45309; }
+.dark .vp-doc pre code .k { color: #c4b5fd; }
+.dark .vp-doc pre code .s { color: #86efac; }
+.dark .vp-doc pre code .c { color: #7dd3fc; }
+.dark .vp-doc pre code .cm { color: #64748b; }
+.dark .vp-doc pre code .n { color: #fcd34d; }
+/* 原文件里 <pre> 用固定换行，主题默认会把它折叠成一行的 pre-wrap */
+.vp-doc pre { white-space: pre; }
+
 /* ---------- 窄屏 ---------- */
 @media (max-width: 960px) {
   .vp-doc .grid2, .vp-doc .grid3, .vp-doc .vs { grid-template-columns: 1fr; }

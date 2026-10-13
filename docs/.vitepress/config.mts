@@ -1,10 +1,19 @@
 import { defineConfig } from 'vitepress'
+import { htmlHeadingsPlugin } from '../../deploy/markdown-it-html-headings'
 
 export default defineConfig({
   lang: 'zh-CN',
   title: 'XMQX 的博客',
   description: '学习笔记与资料整理：GraphRAG、编程、更多资料持续沉淀',
   lastUpdated: true,
+
+  markdown: {
+    config(md) {
+      // GraphRAG 那两页是整块内联 HTML，markdown-it 看不到里面的 <h2>/<h3>，
+      // 右侧目录会是空的。这个插件把它们补上。放在 VitePress 自带插件之后。
+      htmlHeadingsPlugin(md, this)
+    },
+  },
 
   themeConfig: {
     nav: [

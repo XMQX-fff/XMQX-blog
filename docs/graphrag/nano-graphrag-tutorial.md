@@ -10,11 +10,11 @@ outline: [2, 3]
 <!-- ==================== 第一部分 ==================== -->
 <div class="part">
   <div class="pno">Part 1</div>
-  <h2>为什么需要 nano-graphrag</h2>
+  <h2 id="为什么需要-nano-graphrag">为什么需要 nano-graphrag</h2>
   <p>这一部分不写代码。先把问题讲清楚：大模型缺什么、普通 RAG 补了什么、还差什么，最后才引出 GraphRAG。</p>
 </div>
 <section class="lesson" id="l1">
-  <div class="lhead"><div class="lno">01</div><h3>大模型回答不了的两个问题</h3><span class="ldiff">入门</span></div>
+  <div class="lhead"><div class="lno">01</div><h3 id="l1">大模型回答不了的两个问题</h3><span class="ldiff">入门</span></div>
   <div class="lbody">
     <p>假设你手里有一批公司内部文档，你想让 AI 帮你回答问题。会遇到两类麻烦：</p>
     <div class="box ex"><b class="hd">问题一 · 资料太长，塞不进去</b>
@@ -32,7 +32,7 @@ outline: [2, 3]
   </div>
 </section>
 <section class="lesson" id="l2">
-  <div class="lhead"><div class="lno">02</div><h3>检索增强生成（RAG）：先查再答</h3><span class="ldiff">入门</span></div>
+  <div class="lhead"><div class="lno">02</div><h3 id="l2">检索增强生成（RAG）：先查再答</h3><span class="ldiff">入门</span></div>
   <div class="lbody">
     <p><strong>RAG（Retrieval-Augmented Generation，检索增强生成）</strong>的思路一句话就能说完：</p>
     <div class="box an"><b class="hd">类比：开卷考试</b>
@@ -56,7 +56,7 @@ outline: [2, 3]
   </div>
 </section>
 <section class="lesson" id="l3">
-  <div class="lhead"><div class="lno">03</div><h3>向量检索：让机器"读懂"语义</h3><span class="ldiff">入门</span></div>
+  <div class="lhead"><div class="lno">03</div><h3 id="l3">向量检索：让机器"读懂"语义</h3><span class="ldiff">入门</span></div>
   <div class="lbody">
     <p>怎么判断"哪几块和问题相关"？最朴素的办法是关键词匹配——搜"奶茶"就找含"奶茶"的块。但"开奶茶店"和"经营饮品连锁"没有共同关键词，语义上却是近义的。</p>
     <p><strong><span class="term" title="embedding / 向量化：用一个模型把任意文字映射成固定长度的数字数组"">Embedding（向量化）</span></strong>解决这个问题：用一个专门的模型把文字变成一串数字（一个坐标点），规则是——<strong>意思越接近的文字，坐标离得越近</strong>。</p>
@@ -73,7 +73,7 @@ outline: [2, 3]
   </div>
 </section>
 <section class="lesson" id="l4">
-  <div class="lhead"><div class="lno">04</div><h3>传统 RAG 的三个短板</h3><span class="ldiff">入门</span></div>
+  <div class="lhead"><div class="lno">04</div><h3 id="传统-rag-的三个短板">传统 RAG 的三个短板</h3><span class="ldiff">入门</span></div>
   <div class="lbody">
     <p>普通 RAG（切块 → 向量检索）很好用，但有三个天然短板，正好对应第一课的两个问题：</p>
     <table>
@@ -101,7 +101,7 @@ outline: [2, 3]
   </div>
 </section>
 <section class="lesson" id="l5">
-  <div class="lhead"><div class="lno">05</div><h3>知识图谱与 GraphRAG 思路</h3><span class="ldiff">入门</span></div>
+  <div class="lhead"><div class="lno">05</div><h3 id="知识图谱与-graphrag-思路">知识图谱与 GraphRAG 思路</h3><span class="ldiff">入门</span></div>
   <div class="lbody">
     <p><strong><span class="term" title="Knowledge Graph：用&quot;节点=事物，边=关系&quot;的方式组织知识的数据结构"">知识图谱</span></strong>（Knowledge Graph）就是上一课说的那张"网"：</p>
     <ul>
@@ -110,15 +110,12 @@ outline: [2, 3]
       <li>每个节点/边上还可以挂一段<strong>描述文字</strong>和一个<strong>权重</strong>（关系多强）</li>
     </ul>
     <p>用例子画出来是这样：</p>
-
-```
+    <pre>
 [小李] ──就职于(权重8)──▶ [茶百道] ──成立于2008──▶ [成都]
   │                         │
   └──位于──[杭州]        ──总部位于──[成都]
-
 问题「小李的公司成立于哪年？」在图上就是走两步：
-   小李 ──就职于──▶ 茶百道 ──成立于──▶ 2008   ✔ 两个块的信息被边"串"起来了
-```
+   小李 ──就职于──▶ 茶百道 ──成立于──▶ 2008   ✔ 两个块的信息被边"串"起来了</pre>
     <p><strong>GraphRAG 的完整思路</strong>（微软 2024 年提出，nano-graphrag 是它的极简实现）分两个阶段：</p>
     <div class="flow">
       <div class="fbox f1">阶段一 · 建索引<small>读完所有文档<br>让 LLM 抽出实体关系<br>拼成知识图谱</small></div>
@@ -141,20 +138,16 @@ outline: [2, 3]
 <!-- ==================== 第二部分 ==================== -->
 <div class="part">
   <div class="pno">Part 2</div>
-  <h2>先看全景：一次写入、一次查询</h2>
+  <h2 id="先看全景一次写入一次查询">先看全景：一次写入、一次查询</h2>
   <p>先不纠结细节，把整个系统的"输入 → 中间产物 → 输出"走一遍，建立地图感。后面第三、四部分再逐站深入。</p>
 </div>
 <section class="lesson" id="l6">
-  <div class="lhead"><div class="lno">06</div><h3>insert：把文章变成知识</h3><span class="ldiff">入门</span></div>
+  <div class="lhead"><div class="lno">06</div><h3 id="l6">insert：把文章变成知识</h3><span class="ldiff">入门</span></div>
   <div class="lbody">
     <p>使用这个库只有两个动作，这是第一个。你写代码时它长这样：</p>
-
-```
-from nano_graphrag import GraphRAG
-
-graph = GraphRAG(working_dir="./my_kg")
-graph.insert("小李在杭州的茶百道工作……")   # 把文档喂进去
-```
+    <pre><span class="k">from</span> nano_graphrag <span class="k">import</span> GraphRAG
+graph = GraphRAG(working_dir=<span class="s">"./my_kg"</span>)
+graph.insert(<span class="s">"小李在杭州的茶百道工作……"</span>)   <span class="cm"># 把文档喂进去</span></pre>
     <p>这一行 <code>insert</code> 背后发生了 6 件事，每件都在磁盘 <code>./my_kg/</code> 留下产物：</p>
     <div class="flow" style="flex-direction:column">
       <div class="fbox f5">① 切块：长文按 1200 token 切成小块，每块算一个 MD5 编号（重复内容自动跳过）<small>产物：kv_store_text_chunks.json</small></div>
@@ -176,17 +169,13 @@ graph.insert("小李在杭州的茶百道工作……")   # 把文档喂进去
   </div>
 </section>
 <section class="lesson" id="l7">
-  <div class="lhead"><div class="lno">07</div><h3>query：三种提问方式</h3><span class="ldiff">入门</span></div>
+  <div class="lhead"><div class="lno">07</div><h3 id="l7">query：三种提问方式</h3><span class="ldiff">入门</span></div>
   <div class="lbody">
     <p>第二个动作是提问，通过 <code>QueryParam(mode=...)</code> 选三种模式之一：</p>
-
-```
-from nano_graphrag import QueryParam
-
-graph.query("小李的公司成立于哪一年？", QueryParam(mode="local"))   # 问细节
-graph.query("这批公司整体发展如何？",     QueryParam(mode="global"))  # 问全局
-graph.query("茶百道总部在哪？",           QueryParam(mode="naive"))   # 翻原文
-```
+    <pre><span class="k">from</span> nano_graphrag <span class="k">import</span> QueryParam
+graph.query(<span class="s">"小李的公司成立于哪一年？"</span>, QueryParam(mode=<span class="s">"local"</span>))   <span class="cm"># 问细节</span>
+graph.query(<span class="s">"这批公司整体发展如何？"</span>,     QueryParam(mode=<span class="s">"global"</span>))  <span class="cm"># 问全局</span>
+graph.query(<span class="s">"茶百道总部在哪？"</span>,           QueryParam(mode=<span class="s">"naive"</span>))   <span class="cm"># 翻原文</span></pre>
     <table>
       <tr><th>模式</th><th>适用提问</th><th>直觉类比</th><th>数据来源</th></tr>
       <tr>
@@ -215,7 +204,7 @@ graph.query("茶百道总部在哪？",           QueryParam(mode="naive"))   # 
   </div>
 </section>
 <section class="lesson" id="l8">
-  <div class="lhead"><div class="lno">08</div><h3>项目文件地图：每个文件管什么</h3><span class="ldiff">入门</span></div>
+  <div class="lhead"><div class="lno">08</div><h3 id="l8">项目文件地图：每个文件管什么</h3><span class="ldiff">入门</span></div>
   <div class="lbody">
     <p>clone 下来的项目长这样（只看核心目录 <code>nano_graphrag/</code>）：</p>
     <table>
@@ -236,59 +225,51 @@ graph.query("茶百道总部在哪？",           QueryParam(mode="naive"))   # 
 <!-- ==================== 第三部分 ==================== -->
 <div class="part">
   <div class="pno">Part 3</div>
-  <h2>写入流程逐步拆解</h2>
+  <h2 id="写入流程逐步拆解">写入流程逐步拆解</h2>
   <p>对应 insert 的第 ②~⑥ 步（第 9~13 课）。每课结构固定：做什么 → 为什么 → 例子走一遍 → 对应源码在哪。</p>
 </div>
 <section class="lesson" id="l9">
-  <div class="lhead"><div class="lno">09</div><h3>第一步：切块与去重</h3><span class="ldiff">基础</span></div>
+  <div class="lhead"><div class="lno">09</div><h3 id="l9">第一步：切块与去重</h3><span class="ldiff">基础</span></div>
   <div class="lbody">
-    <h4>做什么</h4>
+    <h4 id="l9-12">做什么</h4>
     <p>把文档切成小块（chunk）。默认策略是<strong>按 token 数滑动窗口硬切</strong>：每块最多 1200 个 <span class="term" title="token：模型计费和限长的单位。1 个汉字通常约 1~2 个 token"">token</span>，相邻块重叠 100 个 token。</p>
     <div class="box an"><b class="hd">为什么要重叠？</b>
       想象把一本书每 20 页装订一份复印件。如果切口正好落在一句话中间，这句话两边的块都"看不全"它。留 100 token 重叠，等于<strong>每个切口附近都有两份拷贝</strong>，关键信息不至于被切丢。</div>
     <div class="box ex"><b class="hd">例子走一遍</b>
       文档 A（约 100 token）完整装进一个块，块编号 = <code>chunk-3f2a…</code>（内容的 MD5）。<br>
       如果 5 天后你又 insert 了一次完全相同的文档 A → 系统算出的编号一模一样 → 查库发现已存在 → <strong>直接跳过，不花一分钱 LLM 调用</strong>。这就是"幂等去重"。</div>
-    <h4>为什么要 MD5 编号？</h4>
+    <h4 id="为什么要-md5-编号">为什么要 MD5 编号？</h4>
     <p>MD5 是把任意内容压缩成固定长度指纹的函数：<strong>内容相同 → 指纹必然相同；内容差一个字 → 指纹完全不同</strong>。用指纹当主键，去重、增量更新、"只处理新内容"全都免费获得了。</p>
-    <h4>两种切法</h4>
+    <h4 id="两种切法">两种切法</h4>
     <table>
       <tr><th>策略</th><th>做法</th><th>特点</th></tr>
       <tr><td><code>chunking_by_token_size</code><br><span class="mini">默认</span></td><td>无视语义，每 1200 token 一刀</td><td>简单可预测，什么语料都能用</td></tr>
       <tr><td><code>chunking_by_seperators</code></td><td>先按段落→换行→中英文句号→空格的优先级切开，再拼到 1200 以内</td><td>切口落在自然边界，句子完整，对后续 LLM 抽取更友好</td></tr>
     </table>
-    <h4>对应源码</h4>
+    <h4 id="对应源码">对应源码</h4>
     <p class="mini"><span class="fileref">_op.py:31 chunking_by_token_size</span> · <span class="fileref">_op.py:94 get_chunks</span> · <span class="fileref">_utils.py:186 compute_mdhash_id</span></p>
-
-```
-# _op.py 滑动窗口，就 3 行核心逻辑：
+    <pre><span class="cm"># _op.py 滑动窗口，就 3 行核心逻辑：</span>
 for start in range(0, len(tokens), max_token_size - overlap_token_size):
-    chunk_token.append(tokens[start : start + max_token_size])   # 每次前进 1100，取 1200
-```
+    chunk_token.append(tokens[start : start + max_token_size])   <span class="cm"># 每次前进 1100，取 1200</span></pre>
     <div class="box kp"><b class="hd">本课要点</b>
       切块 = 定检索粒度；重叠 = 防止信息被切丢；MD5 编号 = 内容寻址去重。这三件事是后面一切"增量、省钱"的地基。</div>
   </div>
 </section>
 <section class="lesson" id="l10">
-  <div class="lhead"><div class="lno">10</div><h3>第二步：让 LLM 圈出实体</h3><span class="ldiff">基础</span></div>
+  <div class="lhead"><div class="lno">10</div><h3 id="第二步让-llm-圈出实体">第二步：让 LLM 圈出实体</h3><span class="ldiff">基础</span></div>
   <div class="lbody">
-    <h4>做什么</h4>
+    <h4 id="做什么">做什么</h4>
     <p>把每个块发给 LLM，让它按照固定话术，输出这段文字里的<strong>实体</strong>（是什么）和<strong>关系</strong>（谁和谁怎么样）。这是整个系统<strong>最花钱</strong>的一步，所有块并发进行（同时发很多请求）。</p>
-    <h4>发给 LLM 的提示词长什么样</h4>
+    <h4 id="发给-llm-的提示词长什么样">发给 LLM 的提示词长什么样</h4>
     <p>提示词存在 <code>prompt.py</code>，简化后核心是这样：</p>
-
-```
-识别文中所有实体，格式：("entity" <|> 实体名 <|> 类型 <|> 描述)
-识别实体间关系，格式：("relationship" <|> 源 <|> 目标 <|> 描述 <|> 强度)
-用 ## 分隔每条记录，全部完成后输出 <|COMPLETE|>
-
+    <pre>识别文中所有实体，格式：("entity" &lt;|&gt; 实体名 &lt;|&gt; 类型 &lt;|&gt; 描述)
+识别实体间关系，格式：("relationship" &lt;|&gt; 源 &lt;|&gt; 目标 &lt;|&gt; 描述 &lt;|&gt; 强度)
+用 ## 分隔每条记录，全部完成后输出 &lt;|COMPLETE|&gt;
 --- 示例（few-shot）---
-("entity" <|> "Alex" <|> "person" <|> "Alex 是个观察力敏锐的角色……")##
-("relationship" <|> "Alex" <|> "Taylor" <|> "Alex 受 Taylor 影响" <|> 7)
-
+("entity" &lt;|&gt; "Alex" &lt;|&gt; "person" &lt;|&gt; "Alex 是个观察力敏锐的角色……")##
+("relationship" &lt;|&gt; "Alex" &lt;|&gt; "Taylor" &lt;|&gt; "Alex 受 Taylor 影响" &lt;|&gt; 7)
 --- 真实数据 ---
-Text: {你切好的那个块}
-```
+Text: {你切好的那个块}</pre>
     <div class="box ex"><b class="hd">例子：块内容与返回</b>
       输入块：「小李在杭州的茶百道工作，负责新茶饮研发。」<br><br>
       LLM 返回：<br>
@@ -299,18 +280,18 @@ Text: {你切好的那个块}
     <div class="box an"><b class="hd">为什么不用 JSON？用这套奇怪的 &lt;|&gt; 分隔符？</b>
       JSON 对"手写"它很不友好：模型写到一半被截断，或漏一个逗号，整个结构就废了，只能整段丢弃。<br>
       而这种<strong>分隔符协议</strong>非常皮实：<code>##</code> 切成一条条记录，<code>&lt;|&gt;</code> 切开一条记录的字段——<strong>某一条坏了只丢那一条</strong>，解析用一个正则就够。对能力较弱的开源模型尤其友好。</div>
-    <h4>Gleaning：追问"还有漏的吗？"</h4>
+    <h4 id="gleaning追问还有漏的吗">Gleaning：追问"还有漏的吗？"</h4>
     <p>第一次抽取后，系统会再发一句 <em>"MANY entities were missed in the last extraction. Add them below…"</em>（上次漏了很多，补上），让模型补充；再问一句"还有吗？YES/NO"决定是否继续。这叫 <strong>gleaning（打谷扬场式的复查）</strong>，就像写完作文后再检查一遍错别字。<code>entity_extract_max_gleaning</code> 控制最多复查几轮（默认 1 轮）。</p>
     <div class="box kp"><b class="hd">本课要点</b>
       抽取 = LLM 按固定格式吐出实体/关系记录；分隔符协议比 JSON 抗造；gleaning 是复查补漏；此步并发执行、由 best_model（较强的模型）承担。</div>
   </div>
 </section>
 <section class="lesson" id="l11">
-  <div class="lhead"><div class="lno">11</div><h3>第三步：合并成一张图</h3><span class="ldiff">基础</span></div>
+  <div class="lhead"><div class="lno">11</div><h3 id="第三步合并成一张图">第三步：合并成一张图</h3><span class="ldiff">基础</span></div>
   <div class="lbody">
-    <h4>做什么</h4>
+    <h4 id="做什么-21">做什么</h4>
     <p>每个块各自抽出了实体，现在要把全库结果<strong>汇成一张图</strong>。核心问题是：<strong>10 个块都提到了"茶百道"，图里应该有 10 个节点还是 1 个？</strong>——1 个。同名实体合并为同一节点。</p>
-    <h4>合并时三个字段怎么处理</h4>
+    <h4 id="合并时三个字段怎么处理">合并时三个字段怎么处理</h4>
     <table>
       <tr><th>字段</th><th>合并策略</th><th>为什么这么设计</th></tr>
       <tr><td>类型 entity_type</td><td><strong>投票</strong>：谁票多算谁<br>（5 次说 organization，1 次说 company → 取 organization）</td><td>不同块对同一实体的判断可能不一致，众数最稳</td></tr>
@@ -333,24 +314,20 @@ Text: {你切好的那个块}
   </div>
 </section>
 <section class="lesson" id="l12">
-  <div class="lhead"><div class="lno">12</div><h3>第四步：社区——给图分组</h3><span class="ldiff">进阶</span></div>
+  <div class="lhead"><div class="lno">12</div><h3 id="第四步社区给图分组">第四步：社区——给图分组</h3><span class="ldiff">进阶</span></div>
   <div class="lbody">
-    <h4>做什么</h4>
+    <h4 id="做什么-24">做什么</h4>
     <p>图建好后，可能有成千上万个节点。把<strong>互相连接紧密的一簇节点</strong>划成一组，一个组就叫一个<strong>社区（community）</strong>。这一步由聚类算法完成，nano-graphrag 用的是 <strong>Leiden 算法</strong>。</p>
     <div class="box an"><b class="hd">类比：社交圈</b>
       你的微信好友几千人，但自然分成一个个圈子：大学室友圈、公司同事圈、家人圈。<strong>圈子内部联系密，圈子之间联系疏</strong>——这正是社区发现算法在图上做的事。Leiden 就是"自动画圈"的算法，且质量高、速度快（它也是微软 GraphRAG 用的算法，保持了方法论一致）。</div>
-    <h4>为什么要"层级"？</h4>
+    <h4 id="为什么要层级">为什么要"层级"？</h4>
     <p>圈子可以套圈子：「茶百道-研发圈」内部又分「小李-小王-小张」小组。Leiden 输出的就是<strong>多层</strong>结果（level 0、1、2……）：<strong>层数字越小圈越大</strong>（level 0 ≈ 全公司大部门，level 2 ≈ 项目小组）。同一节点可以同时属于多个层的社区。</p>
-
-```
-level 0:  [====== 一个大社区（100 人）======]
+    <pre>level 0:  [====== 一个大社区（100 人）======]
 level 1:     [== 社区A（30人）==]   [== 社区B（40人）==]
 level 2:        [小组A1] [小组A2]      [小组B1] [小组B2]
-
 代码里每个节点存一份归属记录：
-"clusters": [{"level":0,"cluster":5}, {"level":1,"cluster":12}, ...]
-```
-    <h4>occurrence（出现度）是什么？</h4>
+"clusters": [{"level":0,"cluster":5}, {"level":1,"cluster":12}, ...]</pre>
+    <h4 id="occurrence出现度是什么">occurrence（出现度）是什么？</h4>
     <p>每个社区会算一个 0~1 的值：<strong>该社区覆盖的文本块数 ÷ 全库最大社区的文本块数</strong>。直觉上，<strong>覆盖原文越多的社区，越"有料"</strong>——后面查询排序时会用到它。</p>
     <div class="box kp"><b class="hd">本课要点</b>
       社区 = 图上的"圈子"；Leiden 自动画圈；圈分层级（大圈套小圈）；occurrence 衡量圈子覆盖了多少原文。为什么要画圈？——为了下一课<strong>给每个圈子写一份报告</strong>，这是解决"全局失明"的关键。</div>
@@ -358,29 +335,26 @@ level 2:        [小组A1] [小组A2]      [小组B1] [小组B2]
   </div>
 </section>
 <section class="lesson" id="l13">
-  <div class="lhead"><div class="lno">13</div><h3>第五步：给社区写报告</h3><span class="ldiff">进阶</span></div>
+  <div class="lhead"><div class="lno">13</div><h3 id="第五步给社区写报告">第五步：给社区写报告</h3><span class="ldiff">进阶</span></div>
   <div class="lbody">
-    <h4>做什么 & 为什么</h4>
+    <h4 id="做什么--为什么">做什么 & 为什么</h4>
     <p>对每个社区，把它内部的实体、关系打包，让 LLM 写一份<strong>结构化摘要报告</strong>。这一步是在为"全局问题"预存答案：</p>
     <div class="box an"><b class="hd">类比：公司的年报</b>
       老板不可能亲自读完全公司 1 万封邮件（=全局问题没法靠翻碎片解决）。于是每个部门写一份<strong>部门年报</strong>，老板只读几十份年报就掌握全局。社区报告就是"部门年报"，<strong>写年报的成本花在建索引时，查询时免费复用</strong>。</div>
-    <h4>报告里有什么</h4>
+    <h4 id="报告里有什么">报告里有什么</h4>
     <p>LLM 被要求返回一个 JSON（提示词在 <code>prompt.py</code> 的 <code>community_report</code>）：</p>
-
-```
-{
-  "title": "茶百道研发与成都总部社区",
-  "summary": "该社区围绕茶百道展开，包含其成都总部、杭州研发中心及人员……",
-  "rating": 6.5,                    // 0~10 分：这个圈子的重要程度
-  "rating_explanation": "涉及核心业务实体，影响中等偏上",
-  "findings": [                       // 5~10 条要点，每条=标题+展开
-    {"summary":"茶百道的双城布局", "explanation":"成都总部与杭州研发……"},
+    <pre>{
+  <span class="c">"title"</span>: <span class="s">"茶百道研发与成都总部社区"</span>,
+  <span class="c">"summary"</span>: <span class="s">"该社区围绕茶百道展开，包含其成都总部、杭州研发中心及人员……"</span>,
+  <span class="c">"rating"</span>: <span class="n">6.5</span>,                    <span class="cm">// 0~10 分：这个圈子的重要程度</span>
+  <span class="c">"rating_explanation"</span>: <span class="s">"涉及核心业务实体，影响中等偏上"</span>,
+  <span class="c">"findings"</span>: [                       <span class="cm">// 5~10 条要点，每条=标题+展开</span>
+    {<span class="c">"summary"</span>:<span class="s">"茶百道的双城布局"</span>, <span class="c">"explanation"</span>:<span class="s">"成都总部与杭州研发……"</span>},
     ...
   ]
-}
-```
+}</pre>
     <p>报告会存成<strong>两份</strong>：JSON（保留 rating 等结构化字段，供排序过滤用）和 Markdown 文本（供直接阅读/拼进提示词）。</p>
-    <h4>怎么保证不超模型窗口：打包预算</h4>
+    <h4 id="怎么保证不超模型窗口打包预算">怎么保证不超模型窗口：打包预算</h4>
     <p>一个社区可能有几百个节点，全塞进提示词会爆窗口。系统有一套打包策略（<code>_pack_single_community_describe</code>）：</p>
     <div class="flow">
       <div class="fbox f4">① 大社区优先用子报告<small>圈太大时，不列明细，
@@ -402,13 +376,13 @@ level 2:        [小组A1] [小组A2]      [小组B1] [小组B2]
 <!-- ==================== 第四部分 ==================== -->
 <div class="part">
   <div class="pno">Part 4</div>
-  <h2>查询流程逐步拆解</h2>
+  <h2 id="查询流程逐步拆解">查询流程逐步拆解</h2>
   <p>insert 之后知识就备好了。这一部分回答：三种模式各自怎么把问题变成答案？</p>
 </div>
 <section class="lesson" id="l14">
-  <div class="lhead"><div class="lno">14</div><h3>local：刨根问底式提问</h3><span class="ldiff">基础</span></div>
+  <div class="lhead"><div class="lno">14</div><h3 id="local刨根问底式提问">local：刨根问底式提问</h3><span class="ldiff">基础</span></div>
   <div class="lbody">
-    <h4>它怎么回答"小李的公司成立于哪一年？"</h4>
+    <h4 id="它怎么回答小李的公司成立于哪一年">它怎么回答"小李的公司成立于哪一年？"</h4>
     <p>五步走，全部发生在 <code>_build_local_query_context</code> 里：</p>
     <div class="flow" style="flex-direction:column">
       <div class="fbox f1">① 用问题去实体向量库检索 → 找回最相关的 20 个实体<small>「小李」「茶百道」…被召回，同时拿到每个节点的度数（朋友数）</small></div>
@@ -436,9 +410,9 @@ level 2:        [小组A1] [小组A2]      [小组B1] [小组B2]
   </div>
 </section>
 <section class="lesson" id="l15">
-  <div class="lhead"><div class="lno">15</div><h3>global：我要的是全局</h3><span class="ldiff">进阶</span></div>
+  <div class="lhead"><div class="lno">15</div><h3 id="global我要的是全局">global：我要的是全局</h3><span class="ldiff">进阶</span></div>
   <div class="lbody">
-    <h4>它完全不走实体向量，只读"年报"</h4>
+    <h4 id="它完全不走实体向量只读年报">它完全不走实体向量，只读"年报"</h4>
     <p>问「这批文档里的公司整体发展如何？」——没有任何单个实体能回答这个问题。global 的策略是把第 13 课写好的<strong>所有社区报告</strong>拿来，走一轮 <span class="term" title="Map-Reduce：先分头处理（Map），再汇总结果（Reduce）"">Map-Reduce</span>：</p>
     <div class="flow" style="flex-direction:column">
       <div class="fbox f4">① 筛选：挑出要读的报告<small>层级 ≤ level、按 occurrence 排序取前 512 个、评分低于阈值的丢掉</small></div>
@@ -462,7 +436,7 @@ level 2:        [小组A1] [小组A2]      [小组B1] [小组B2]
   </div>
 </section>
 <section class="lesson" id="l16">
-  <div class="lhead"><div class="lno">16</div><h3>naive：不看图直接翻书</h3><span class="ldiff">入门</span></div>
+  <div class="lhead"><div class="lno">16</div><h3 id="l16">naive：不看图直接翻书</h3><span class="ldiff">入门</span></div>
   <div class="lbody">
     <p>最简单的一个模式，四步：</p>
     <div class="flow">
@@ -482,30 +456,27 @@ level 2:        [小组A1] [小组A2]      [小组B1] [小组B2]
 <!-- ==================== 第五部分 ==================== -->
 <div class="part">
   <div class="pno">Part 5</div>
-  <h2>底层支撑机制</h2>
+  <h2 id="底层支撑机制">底层支撑机制</h2>
   <p>前几课反复出现的几个"配角"——token 预算、缓存、限流、存储接口——单独拎出来讲透。懂了这四课，你就理解了这个项目 80% 的代码细节。</p>
 </div>
 <section class="lesson" id="l17">
-  <div class="lhead"><div class="lno">17</div><h3>token 与预算：为什么到处截断</h3><span class="ldiff">基础</span></div>
+  <div class="lhead"><div class="lno">17</div><h3 id="l17">token 与预算：为什么到处截断</h3><span class="ldiff">基础</span></div>
   <div class="lbody">
-    <h4>先说 token</h4>
+    <h4 id="l17-39">先说 token</h4>
     <p><strong>token</strong> 是 LLM 的"字数单位"：模型有上下文窗口上限（如 128k token），API 按 token 计费。项目里所有"1200"、"500"、"16384"之类的数字都是 token 数。项目用一个叫 <code>TokenizerWrapper</code> 的工具把文字数成 token（底层是 tiktoken），<strong>全项目数 token 只走这一个口</strong>，换成别的分词器也不影响别处。</p>
-    <h4>核心矛盾</h4>
+    <h4 id="l17-40">核心矛盾</h4>
     <div class="box wa"><b class="hd">想给模型的 vs 模型装得下的</b>
       想给：全部相关实体、全部边、全部报告、全部原文……<br>
       装得下：固定的上下文窗口。<br>
       解法只有一个：<strong>排序 + 截断</strong>——先把重要的排前面，再按预算从头装。</div>
-    <h4>全项目的统一工具：truncate_list_by_token_size</h4>
-
-```python
-def truncate_list_by_token_size(list_data, key, max_token_size, tokenizer):
-    tokens = 0
-    for i, data in enumerate(list_data):        # 按顺序累加
-        tokens += len(tokenizer.encode(key(data))) + 1
-        if tokens > max_token_size:
-            return list_data[:i]                  # 装满就停，返回前缀
-    return list_data
-```
+    <h4 id="l17-41">全项目的统一工具：truncate_list_by_token_size</h4>
+    <pre><span class="k">def</span> truncate_list_by_token_size(list_data, key, max_token_size, tokenizer):
+    tokens = <span class="n">0</span>
+    <span class="k">for</span> i, data <span class="k">in</span> enumerate(list_data):        <span class="cm"># 按顺序累加</span>
+        tokens += len(tokenizer.encode(key(data))) + <span class="n">1</span>
+        <span class="k">if</span> tokens > max_token_size:
+            <span class="k">return</span> list_data[:i]                  <span class="cm"># 装满就停，返回前缀</span>
+    <span class="k">return</span> list_data</pre>
     <p>它在源码里出现了十几次，每次调用前<strong>列表都已经排好序</strong>，所以"返回前缀"＝"保留最重要的"。这就是前面各课反复看到的"预算 4000 tokens""按评分截断"背后的同一行代码。</p>
     <div class="box sn"><b class="hd">预算从哪来？</b>
       写入侧：预算 = 模型窗口 − 提示词模板开销（<code>best_model_max_token_size</code> 减去模板长度）。<br>
@@ -515,19 +486,19 @@ def truncate_list_by_token_size(list_data, key, max_token_size, tokenizer):
   </div>
 </section>
 <section class="lesson" id="l18">
-  <div class="lhead"><div class="lno">18</div><h3>调用 LLM 的三件保险</h3><span class="ldiff">基础</span></div>
+  <div class="lhead"><div class="lno">18</div><h3 id="l18">调用 LLM 的三件保险</h3><span class="ldiff">基础</span></div>
   <div class="lbody">
     <p>LLM API 会限流、会抖动、会重复计费。<code>_llm.py</code> 给每次调用上了三道保险：</p>
-    <h4>保险一 · 重试（摔倒了爬起来）</h4>
+    <h4 id="l18-43">保险一 · 重试（摔倒了爬起来）</h4>
     <p>遇到限流错误（RateLimitError）或连接错误时，<strong>最多再试 5 次，间隔 4→10 秒指数变长</strong>。用的是 <code>tenacity</code> 库的 <code>@retry</code> 装饰器，套在每个调用函数外面，调用方无感知。</p>
-    <h4>保险二 · 缓存（同一道题不答两次）</h4>
+    <h4 id="l18-44">保险二 · 缓存（同一道题不答两次）</h4>
     <div class="box ex"><b class="hd">工作方式</b>
       ① 把「模型名 + 完整的消息列表」做 MD5，得到一个指纹；<br>
       ② 先查缓存：这个指纹见过吗？<strong>见过 → 直接返回上次的答案，一分钱不花</strong>；<br>
       ③ 没见过 → 调 API → 把答案连同指纹存进 <code>kv_store_llm_response_cache.json</code>，并立刻落盘。<br><br>
       实际效果：重建社区报告时，只要社区内容没变，提示词就一样，<strong>第二次全部命中缓存</strong>。中途失败重跑 insert，也不用为已完成的部分再付一次钱。</div>
     <p class="mini"><span class="fileref">_llm.py:50 openai_complete_if_cache</span> · <span class="fileref">_utils.py:220 compute_args_hash</span></p>
-    <h4>保险三 · 限流（进闸门先排队）</h4>
+    <h4 id="l18-45">保险三 · 限流（进闸门先排队）</h4>
     <p>抽取几百个块时会同时发几百个请求，API 必然报错。系统给每个 LLM/Embedding 函数外面套了一层<strong>并发闸门</strong>（<code>limit_async_func_call</code>）：同时最多 16 个在飞（可配），第 17 个请求必须等前面有人完成才放行。</p>
     <div class="box an"><b class="hd">类比：景区闸机</b>
       闸机同时只放 16 人，第 17 人在黄线外等——不是拒绝，是排队。这样把"同时几百个请求"变成"稳定的每秒十几个请求"，限流错误自然就少了。</div>
@@ -537,9 +508,9 @@ def truncate_list_by_token_size(list_data, key, max_token_size, tokenizer):
   </div>
 </section>
 <section class="lesson" id="l19">
-  <div class="lhead"><div class="lno">19</div><h3>三类存储与"可插拔"</h3><span class="ldiff">基础</span></div>
+  <div class="lhead"><div class="lno">19</div><h3 id="l19">三类存储与"可插拔"</h3><span class="ldiff">基础</span></div>
   <div class="lbody">
-    <h4>系统里的数据其实分三种形态</h4>
+    <h4 id="l19-47">系统里的数据其实分三种形态</h4>
     <table>
       <tr><th>形态</th><th>例子</th><th>对应接口</th><th>默认实现</th></tr>
       <tr>
@@ -561,20 +532,16 @@ def truncate_list_by_token_size(list_data, key, max_token_size, tokenizer):
         <td>NetworkXStorage<br><span class="mini">内存图 → graphml 文件</span></td>
       </tr>
     </table>
-    <h4>"可插拔"是怎么实现的？</h4>
+    <h4 id="l19-48">"可插拔"是怎么实现的？</h4>
     <p><code>base.py</code> 只定义<strong>接口</strong>（一堆 <code>raise NotImplementedError</code> 的方法声明），不关心后面是谁。具体实现放在 <code>_storage/</code> 里。想换零件？改一个字段：</p>
-
-```
-from nano_graphrag._storage.gdb_neo4j import Neo4jStorage
-
+    <pre><span class="k">from</span> nano_graphrag._storage.gdb_neo4j <span class="k">import</span> Neo4jStorage
 graph = GraphRAG(
-    graph_storage_cls=Neo4jStorage,          # 图存储从 NetworkX 换成 Neo4j，就这一行
-    vector_db_storage_cls=HNSWVectorStorage, # 向量库同理
-)
-```
+    graph_storage_cls=Neo4jStorage,          <span class="cm"># 图存储从 NetworkX 换成 Neo4j，就这一行</span>
+    vector_db_storage_cls=HNSWVectorStorage, <span class="cm"># 向量库同理</span>
+)</pre>
     <div class="box an"><b class="hd">类比：换电池</b>
       接口像"5 号电池仓"：仓的规格（正负极、直径）是固定的，电池品牌随便换。GraphRAG 主流程只认"仓"，不知道里面装的是谁——所以它才敢在 <code>__post_init__</code> 里写 <code>self.graph_storage_cls(...)</code> 而不关心具体类。</div>
-    <h4>还有个容易忽略的设计：统一的落盘时机</h4>
+    <h4 id="l19-49">还有个容易忽略的设计：统一的落盘时机</h4>
     <p>所有存储都继承同一个基类，带三个钩子函数：<code>index_start_callback</code>（开始写入前调用）、<code>index_done_callback</code>（全部写完后调用）。默认实现是"整个 insert 过程都在内存里改，<strong>最后一次性把 JSON/graphml/向量库写到磁盘</strong>"——避免写一半崩了留下脏数据。</p>
     <p class="mini"><span class="fileref">base.py:59-186 接口定义</span> · <span class="fileref">graphrag.py:360 _insert_done 统一落盘</span></p>
     <div class="box kp"><b class="hd">本课要点</b>
@@ -582,9 +549,9 @@ graph = GraphRAG(
   </div>
 </section>
 <section class="lesson" id="l20">
-  <div class="lhead"><div class="lno">20</div><h3>动手路线与下一步</h3><span class="ldiff">实践</span></div>
+  <div class="lhead"><div class="lno">20</div><h3 id="l20">动手路线与下一步</h3><span class="ldiff">实践</span></div>
   <div class="lbody">
-    <h4>建议的上手顺序（由浅入深，每步都有反馈）</h4>
+    <h4 id="l20-51">建议的上手顺序（由浅入深，每步都有反馈）</h4>
     <div class="steps" style="margin:14px 0">
       <div class="box sn" style="margin:8px 0"><b class="hd">第 1 步 · 跑通最小例子（30 分钟）</b>
         装好依赖后，用 <code>examples/no_openai_key_at_all.py</code> 或接自己的 LLM（OpenAI/DeepSeek/Ollama 都行），对一段几百字文本执行一次 <code>insert</code> + 三种 <code>query</code>。目标：见到真实回答。</div>
@@ -597,7 +564,7 @@ graph = GraphRAG(
       <div class="box sn" style="margin:8px 0"><b class="hd">第 5 步 · 带着问题读源码</b>
         按第 8 课地图顺序：graphrag.py（ainsert 全流程）→ _op.py 的 extract_entities → 两个 merge → local_query → generate_community_report。每读一个函数，问自己"这一步在六步流程的第几步？"</div>
     </div>
-    <h4>可以继续学的概念（按性价比排序）</h4>
+    <h4 id="l20-52">可以继续学的概念（按性价比排序）</h4>
     <table>
       <tr><th>方向</th><th>要学什么</th><th>解决什么</th></tr>
       <tr><td>GraphRAG 方法论本身</td><td>微软 GraphRAG 原版论文（GraphRAG: From Local to Global）</td><td>nano 删掉的 covariates、原版 map-reduce 设计</td></tr>
@@ -612,7 +579,7 @@ graph = GraphRAG(
 </section>
 <!-- ==================== 附录 ==================== -->
 <section class="lesson" id="gl">
-  <div class="lhead"><div class="lno">词</div><h3>附录 · 术语速查表</h3><span class="ldiff">随查随用</span></div>
+  <div class="lhead"><div class="lno">词</div><h3 id="gl">附录 · 术语速查表</h3><span class="ldiff">随查随用</span></div>
   <div class="lbody">
     <table>
       <tr><th>术语</th><th>一句话解释</th><th>首见于</th></tr>
