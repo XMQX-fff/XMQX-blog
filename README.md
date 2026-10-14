@@ -4,6 +4,9 @@
 
 ## 栏目
 
+- **LangGraph 学习**：跟着 [langgraph.com.cn](https://langgraph.com.cn/) 啃下来的笔记（`docs/langgraph/`）
+  - 概览与学习路线 — `docs/langgraph/index.md`
+  - 开篇 / 快速上手 / 图 API / 智能体架构 / 持久化与记忆 / 人机协作与流式输出
 - **GraphRAG 学习**：围绕 [nano-graphrag](https://github.com/gusye1234/nano-graphrag) 的系列资料
   - 从入门到理解（初学者教程）— `docs/public/graphrag/nano-graphrag-tutorial.html`
   - 源码深度解析（参考手册）— `docs/public/graphrag/nano-graphrag-source-analysis.html`

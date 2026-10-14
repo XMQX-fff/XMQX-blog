@@ -4,7 +4,7 @@ import { htmlHeadingsPlugin } from '../../deploy/markdown-it-html-headings'
 export default defineConfig({
   lang: 'zh-CN',
   title: 'XMQX 的博客',
-  description: '学习笔记与资料整理：GraphRAG、编程、更多资料持续沉淀',
+  description: '学习笔记与资料整理：GraphRAG、LangGraph、编程、更多资料持续沉淀',
   lastUpdated: true,
 
   markdown: {
@@ -19,6 +19,7 @@ export default defineConfig({
     nav: [
       { text: '首页', link: '/' },
       { text: 'GraphRAG 学习', link: '/graphrag/' },
+      { text: 'LangGraph 学习', link: '/langgraph/' },
     ],
 
     sidebar: {
@@ -30,6 +31,21 @@ export default defineConfig({
             { text: '概览与学习路线', link: '/graphrag/' },
             { text: '从入门到理解（初学者教程）', link: '/graphrag/nano-graphrag-tutorial' },
             { text: '源码深度解析（参考手册）', link: '/graphrag/nano-graphrag-source-analysis' },
+          ],
+        },
+      ],
+      '/langgraph/': [
+        {
+          text: 'LangGraph 学习',
+          collapsed: false,
+          items: [
+            { text: '概览与学习路线', link: '/langgraph/' },
+            { text: '开篇：LangGraph 到底是个啥', link: '/langgraph/why-langgraph' },
+            { text: '快速上手：跑通第一个 Agent', link: '/langgraph/quickstart' },
+            { text: '图 API 三件套', link: '/langgraph/graph-api' },
+            { text: '智能体架构', link: '/langgraph/agent-architectures' },
+            { text: '持久化与记忆', link: '/langgraph/persistence-memory' },
+            { text: '人机协作与流式输出', link: '/langgraph/hil-streaming' },
           ],
         },
       ],
