@@ -4,6 +4,10 @@
 
 ## 栏目
 
+- **LangChain 学习**：依据 [langchain-doc.cn](https://langchain-doc.cn/) 整理的 v1 笔记（`docs/langchain/`）
+  - 概览与学习路线 — `docs/langchain/index.md`
+  - 概览与设计理念 / 快速入门 / 智能体与运行框架 / 模型·消息·工具 /
+    记忆·流式·结构化输出 / 中间件与运行时 / 上下文工程与高级能力
 - **LangGraph 学习**：跟着 [langgraph.com.cn](https://langgraph.com.cn/) 啃下来的笔记（`docs/langgraph/`）
   - 概览与学习路线 — `docs/langgraph/index.md`
   - 开篇 / 快速上手 / 图 API / 智能体架构 / 持久化与记忆 / 人机协作与流式输出

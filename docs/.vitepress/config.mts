@@ -4,7 +4,7 @@ import { htmlHeadingsPlugin } from '../../deploy/markdown-it-html-headings'
 export default defineConfig({
   lang: 'zh-CN',
   title: 'XMQX 的博客',
-  description: '学习笔记与资料整理：GraphRAG、LangGraph、编程、更多资料持续沉淀',
+  description: '学习笔记与资料整理：GraphRAG、LangGraph、LangChain、编程、更多资料持续沉淀',
   lastUpdated: true,
 
   markdown: {
@@ -20,6 +20,7 @@ export default defineConfig({
       { text: '首页', link: '/' },
       { text: 'GraphRAG 学习', link: '/graphrag/' },
       { text: 'LangGraph 学习', link: '/langgraph/' },
+      { text: 'LangChain 学习', link: '/langchain/' },
     ],
 
     sidebar: {
@@ -46,6 +47,22 @@ export default defineConfig({
             { text: '智能体架构', link: '/langgraph/agent-architectures' },
             { text: '持久化与记忆', link: '/langgraph/persistence-memory' },
             { text: '人机协作与流式输出', link: '/langgraph/hil-streaming' },
+          ],
+        },
+      ],
+      '/langchain/': [
+        {
+          text: 'LangChain 学习',
+          collapsed: false,
+          items: [
+            { text: '概览与学习路线', link: '/langchain/' },
+            { text: '概览与设计理念', link: '/langchain/overview' },
+            { text: '快速入门', link: '/langchain/quickstart' },
+            { text: '智能体与运行框架', link: '/langchain/agents' },
+            { text: '模型 · 消息 · 工具', link: '/langchain/components' },
+            { text: '记忆 · 流式 · 结构化输出', link: '/langchain/context-output' },
+            { text: '中间件与运行时', link: '/langchain/middleware-runtime' },
+            { text: '上下文工程与高级能力', link: '/langchain/advanced' },
           ],
         },
       ],
