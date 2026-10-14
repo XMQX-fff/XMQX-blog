@@ -40,9 +40,9 @@ export default defineConfig({
           collapsed: false,
           items: [
             { text: '概览与学习路线', link: '/langgraph/' },
-            { text: '开篇：LangGraph 到底是个啥', link: '/langgraph/why-langgraph' },
-            { text: '快速上手：跑通第一个 Agent', link: '/langgraph/quickstart' },
-            { text: '图 API 三件套', link: '/langgraph/graph-api' },
+            { text: '开篇：LangGraph 的定位', link: '/langgraph/why-langgraph' },
+            { text: '快速上手：构建第一个智能体', link: '/langgraph/quickstart' },
+            { text: '图 API 三要素', link: '/langgraph/graph-api' },
             { text: '智能体架构', link: '/langgraph/agent-architectures' },
             { text: '持久化与记忆', link: '/langgraph/persistence-memory' },
             { text: '人机协作与流式输出', link: '/langgraph/hil-streaming' },

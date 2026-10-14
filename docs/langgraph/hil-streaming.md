@@ -1,35 +1,35 @@
 # 人机协作与流式输出
 
-本栏目的最后一篇，讲两个"让 Agent 从 demo 变成能上线的东西"的功能：
-**人插得进手**，和**过程吐得出来**。
+本篇为本栏目最后一篇，讨论两项使智能体由演示走向生产的能力：
+**人工可介入**，以及**过程可观测**。
 
 ## 一、人机协作（HIL）
 
-### 为什么非得有它
+### 必要性
 
-模型输出可能需要验证、更正、或者补充上下文。
-"让 AI 直接把邮件发出去"和"AI 起草、人点确认再发"，是两种完全不同的风险等级。
+模型输出可能需要验证、更正或补充上下文。
+"由 AI 直接发送邮件"与"AI 起草、人工确认后发送"，风险等级截然不同。
 
-文档列的两个关键能力：
+文档归纳的两项关键能力：
 
-- **持久化执行状态**：每一步之后都检查点，所以可以**无限期暂停**——
-  人今天下班了，明天回来接着审也行，完全异步。
-- **灵活的集成点**：HIL 逻辑可以放在工作流的**任何位置**，不是只能在开头或结尾。
+- **持久化执行状态**：每步之后均产生检查点，因此可**无限期暂停**——
+  审核可完全异步，跨越任意时长。
+- **灵活的介入位置**：HIL 逻辑可置于工作流的**任意位置**，而非仅限首尾。
 
-### 三个典型用例
+### 三类典型用例
 
-1. **审查工具调用**：工具执行**之前**，人可以看一眼、改参数、或者直接否掉。
-2. **验证 LLM 输出**：生成的内容让人过目/编辑/批准。
-3. **提供上下文**：Agent 主动开口问人"你这个需求是指 A 还是 B？"，支持多轮澄清。
+1. **审查工具调用**：工具执行**之前**，人工可查看、修改参数或直接否决。
+2. **验证模型输出**：生成内容交由人工审阅、编辑或批准。
+3. **补充上下文**：智能体主动询问"该需求指 A 还是 B？"，支持多轮澄清。
 
-### 实现就两个原语
+### 实现仅涉及两个原语
 
 ```text
-interrupt(...)          在特定点暂停，把信息抛出去给人看
-Command(resume=...)     把人给的值塞回来，从断点继续
+interrupt(...)          在指定位置暂停，将信息抛出供人工处理
+Command(resume=...)     将人工输入回填，自断点继续执行
 ```
 
-完整长这样：
+完整流程如下：
 
 ```python
 from langgraph.types import interrupt, Command
@@ -43,81 +43,82 @@ def human_review(state):
         return {"messages": [...]}          # 放行
     return {"messages": [AIMessage("已取消")]}
 
-# 第一次跑到 interrupt 会抛出，图停在那儿
+# 首次执行至 interrupt 时抛出，图停驻于该处
 graph.invoke(input, config)
 
-# 人审完，用 Command(resume=...) 恢复
+# 审核完成后，以 Command(resume=...) 恢复
 graph.invoke(Command(resume={"approved": True}), config)
 ```
 
-::: warning 必须先挂 checkpointer
-`interrupt` 的本质是"存好状态然后停下"。**没有 checkpointer 就没有状态可存**，
-这个前置条件我在读文档时一开始没当回事，结果就是 `interrupt` 根本不生效。
+::: warning 前置条件：必须挂载 checkpointer
+`interrupt` 的本质是"保存状态并停止"。**若无 checkpointer 则无状态可存**，
+该前置条件若被忽略，`interrupt` 将无法生效。
 :::
 
-配套还有两个概念，都是 checkpointer 的衍生品（上一篇讲过）：
+另有两个相关概念，均为 checkpointer 的衍生能力（前一篇已述）：
 
-- **断点（Breakpoints）**：更"静态"的做法，在编译时声明在某个节点前停下。
-  `interrupt()` 是"动态"的，可以在节点内部根据运行时条件决定停不停。
-- **时间旅行（Time Travel）**：从历史任意检查点分叉重跑。
-  人驳回之后想"如果当时选了另一条会怎样"，这个能力就是干这个的。
+- **断点（Breakpoints）**：较为"静态"的方式，在编译时声明于某节点前停止。
+  `interrupt()` 属"动态"方式，可在节点内部依据运行时条件决定是否停止。
+- **时间旅行（Time Travel）**：从任意历史检查点分叉重跑。
+  人工驳回后若需考察"另一选择的结果"，即依赖该能力。
 
-### 一个额外的贴心设计
+### 一项配套设计
 
-`interrupt()` 抛出的信息里可以带上结构化的载荷（问题、待审的工具调用、候选选项……），
-前端直接渲染就行，不用自己另外拼一份 UI 数据。
+`interrupt()` 抛出的信息可携带结构化载荷（问题、待审的工具调用、候选选项等），
+前端可直接渲染，无需另行组织 UI 数据。
 
 ## 二、流式输出（Streaming）
 
-聊天界面要打字机效果，后台长任务要进度条——都靠它。
+聊天界面的逐字显示、后台任务的进度提示，均依赖该机制。
 
-### 能流出来的东西有三类
+### 可流式传输的三类数据
 
-1. **工作流进度**：每个图节点执行完之后的状态更新（"现在在调搜索工具"）。
-2. **LLM token**：模型生成时逐字吐（打字机效果的来源）。
-3. **自定义更新**：你自己发的信号，比如"已抓取 10/100 条"。
+1. **工作流进度**：每个图节点执行后的状态更新（"正在调用搜索工具"）。
+2. **LLM token**：模型生成时的逐字输出（逐字显示效果的来源）。
+3. **自定义更新**：开发者自行发出的信号，例如"已抓取 10/100 条"。
 
 ### 五种 stream mode
 
-这是我认为最该背下来的表：
+下表为本节的核心内容：
 
-| mode | 吐什么 | 典型用途 |
+| mode | 输出内容 | 典型用途 |
 | --- | --- | --- |
-| `values` | 每步之后的**完整状态** | 想渲染整个状态快照 |
-| `updates` | **增量**，`{节点名: 本次更新}` | 进度提示："a 节点完成了" |
-| `messages` | LLM **token** + 元数据 | 打字机效果 |
-| `custom` | 节点主动 `get_stream_writer()` 发的数据 | 进度通知、自定义事件 |
-| `debug` | 详细跟踪 | 排查问题 |
+| `values` | 每步之后的**完整状态** | 渲染整体状态快照 |
+| `updates` | **增量**，`{节点名: 本次更新}` | 进度提示："某节点已完成" |
+| `messages` | LLM **token** 及元数据 | 逐字显示 |
+| `custom` | 节点通过 `get_stream_writer()` 主动发送的数据 | 进度通知、自定义事件 |
+| `debug` | 详细跟踪信息 | 问题排查 |
 
-用法：
+调用方式：
 
 ```python
 for chunk in graph.stream(input, stream_mode="updates"):
     print(chunk)
 
 for mode, chunk in graph.stream(input, stream_mode=["messages", "updates"]):
-    # 可以同时要多种模式
+    # 可同时请求多种模式
     ...
 ```
 
-几个能力点，官方专门列了：
+文档明确列出的几项能力：
 
-- **任何地方的 token 流都能抓到**——节点内、子图里、工具里，都能捕获。
-- **工具能发进度**：直接在工具函数里发自定义更新（"查了 3/10 个文档"）。
-- **子图的流会往上冒**：父图 + 任意嵌套子图的输出都能拿到。
-- **不绑定 LangChain 模型**：即使你用的是别的 LLM SDK，也能用 `custom` 模式自己往外发 token。
-- **多模式并用**：把 mode 传成列表就行。
+- **任意位置的 token 流均可捕获**——节点内、子图中、工具内均适用。
+- **工具可发送进度**：在工具函数内直接发出自定义更新（"已检索 3/10 个文档"）。
+- **子图的流可向上传递**：父图与任意嵌套子图的输出均可获取。
+- **不绑定 LangChain 模型**：即使使用其他 LLM SDK，也可通过 `custom` 模式自行输出 token。
+- **多模式并用**：将 mode 传入列表即可。
 
-### 前端接的时候我想过的两个坑
+### 接入前端时的两点注意
 
-1. **token 流要自己拼**：`messages` 模式吐的是碎片，同一个 message id 的 chunk 要累加，
-   不能每来一个 chunk 就往数组里 push 一条新消息（那会变成一堆碎消息）。
-2. **别只留 `messages`**：`updates` 才能告诉用户"现在卡在哪一步"。
-   纯 token 流看不出 Agent 是在思考还是卡死了。
+1. **token 流需要自行拼接**：`messages` 模式输出的是片段，
+   同一 message id 的 chunk 应累加，而非每收到一个 chunk 就新增一条消息，
+   否则消息列表将被碎片化。
+2. **不应只使用 `messages`**：`updates` 才能反映当前所处步骤。
+   仅有 token 流时，无法区分智能体是在思考还是已停滞。
 
-（这两条是我结合自己做前端的经验写的，官方文档没有明确强调。）
+（上述两点来自工程实践经验，官方文档未作特别强调。）
 
-## 三、串起来：一个"带审核的流式 Agent"大概长什么样
+## 三、整合示例：带审核的流式智能体
 
 ```python
 from langgraph.checkpoint.postgres import PostgresSaver
@@ -130,58 +131,59 @@ config = {"configurable": {"thread_id": user_session_id}}
 
 # 前端发起
 for mode, chunk in graph.stream(user_input, config, stream_mode=["messages", "updates"]):
-    emit(mode, chunk)          # SSE / WebSocket 推给浏览器
+    emit(mode, chunk)          # 通过 SSE / WebSocket 推送至浏览器
 
-# 若图停在 interrupt 上 → 后端收到审批事件
+# 若图停驻于 interrupt → 后端收到审核事件
 if needs_approval(config):
-    show_review_ui()           # 把 interrupt 的载荷渲染出来
+    show_review_ui()           # 渲染 interrupt 的载荷
 
-# 人点了同意
+# 人工确认后
 graph.invoke(Command(resume={"approved": True}), config)
 ```
 
-整条链路里：
+整条链路的分工：
 
 ```text
-PostgresSaver  →  断了能接、人能中途插手
-interrupt/resume → 审核门禁
-stream_mode    →  打字机 + 步骤进度
+PostgresSaver   →  中断可恢复、人工可中途介入
+interrupt/resume →  审核门禁
+stream_mode     →  逐字显示 + 步骤进度
 ```
 
-## 四、整个栏目回顾
+## 四、全栏目回顾
 
-六篇读下来，LangGraph 的骨架其实就一条线：
+六篇文章串起来，LangGraph 的骨架可归结为一条主线：
 
 ```text
-1. 图 API（State/Node/Edge）     ← 描述"流程长什么样"
-2. 超步 + reducer                ← 决定"状态怎么合并、怎么并行"
-3. checkpointer                  ← 让每一步都可回溯
-        ├─→ 人机协作（interrupt/resume）
-        ├─→ 时间旅行（回放/分叉）
+1. 图 API（State / Node / Edge）   ← 描述"流程的形态"
+2. 超步 + reducer                  ← 决定"状态如何合并、如何并行"
+3. checkpointer                    ← 使每一步均可回溯
+        ├─→ 人机协作（interrupt / resume）
+        ├─→ 时间旅行（回放 / 分叉）
         ├─→ 容错（pending writes 不重跑）
         └─→ 短期记忆（thread 内消息历史）
-4. store                         ← 跨 thread 的长期记忆
-5. stream                        ← 把过程实时吐给用户
-6. Command / Send / 子图          ← 组织复杂拓扑，多智能体
+4. store                           ← 跨 thread 的长期记忆
+5. stream                          ← 将过程实时输出至用户
+6. Command / Send / 子图           ← 组织复杂拓扑与多智能体
 ```
 
-**第 3 步是整个框架的枢纽。** 我读的时候是先囫囵吞枣看完图 API，
-再回头补持久化才豁然开朗的——如果顺序反了，可能理解成本更低。
+**第 3 项是整个框架的枢纽。**
+从结构上看，图 API 解决"流程如何表达"，checkpointer 解决"执行如何管理"，
+其余能力皆由后者派生。
 
-## 还没覆盖的部分
+## 未覆盖的章节
 
-本栏目是"概念主线"，还有一些实操向的章节没展开：
+本栏目聚焦概念主线，以下实操性内容尚未展开：
 
-- **LangGraph Platform / Studio**：托管部署、可视化调试。
+- **LangGraph Platform / Studio**：托管部署与可视化调试。
 - **MCP 集成**、**评估（Evals）**、**UI 组件**。
-- **函数式 API**（`@task` / `@entrypoint`，不需要显式建图的另一种写法）。
-- **子图的不同状态模式怎么接输入输出转换**。
+- **函数式 API**（`@task` / `@entrypoint`，无需显式建图的另一种写法）。
+- **子图在不同状态模式下的输入输出转换**。
 
-需要的时候我再回来补。也欢迎直接啃[官方文档](https://langgraph.com.cn/)——
-它的目录结构跟本栏目的文章顺序基本是一致的。
+需要时可另行补充，亦可直接参阅[官方文档](https://langgraph.com.cn/)——
+其目录结构与本栏目各篇的顺序基本一致。
 
 ::: tip 资料
 - 概念文档：[langgraph.com.cn](https://langgraph.com.cn/)
-- 免费课程：[Intro to LangGraph](https://academy.langchain.com/courses/intro-to-langgraph)
+- 官方课程：[Intro to LangGraph](https://academy.langchain.com/courses/intro-to-langgraph)
 - 本栏目首页：[LangGraph 学习笔记](/langgraph/)
 :::
