@@ -69,7 +69,7 @@ server {
 	# nginx -t 报一条 "no OCSP responder URL" 的告警。
 	# 吊销状态靠 CT 日志 + 短有效期（90 天）兜底。
 
-	root /home/admin/XMQX-blog/docs/.vitepress/dist;
+	root /data/XMQX-blog/docs/.vitepress/dist;
 	index index.html;
 
 	access_log /var/log/nginx/xmqx-blog.access.log;

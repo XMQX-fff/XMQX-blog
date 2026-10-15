@@ -171,13 +171,13 @@ printf '%s\n' "$LIMITS" | "${SUDO[@]}" tee "$LIMITS_CONF"    >/dev/null
 # nginx 以 www-data 运行，必须能从站点目录一路穿过去；缺哪一环就点出来
 log "检查 nginx(www-data) 能否读取产物"
 bad=""
-for p in /home/admin "$REPO_DIR" "$REPO_DIR/docs" "$REPO_DIR/docs/.vitepress" "$DIST_DIR"; do
+for p in /data "$REPO_DIR" "$REPO_DIR/docs" "$REPO_DIR/docs/.vitepress" "$DIST_DIR"; do
 	[[ -x "$p" ]] || bad+=" 缺 traverse: $p\n"
 done
 if [[ -n "$bad" ]] || ! sudo -u www-data test -r "$DIST_DIR/index.html"; then
 	warn "www-data 读不到产物："
 	[[ -n "$bad" ]] && printf "%b" "$bad"
-	die "请修正权限，例如： sudo chmod o+x /home/admin && chmod -R o+rX $DIST_DIR"
+	die "请修正权限，例如： sudo chmod o+x /data && chmod -R o+rX $DIST_DIR"
 fi
 "${SUDO[@]}" chmod -R o+rX "$DIST_DIR"
 

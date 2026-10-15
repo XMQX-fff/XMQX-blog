@@ -1,6 +1,6 @@
 [Unit]
 Description=XMQX-blog auto-deploy (fetch latest commit and redeploy the static site)
-Documentation=file:///home/admin/XMQX-blog/README.md
+Documentation=file:///data/XMQX-blog/README.md
 After=network-online.target nginx.service
 Wants=network-online.target
 # 和 nginx 一起起：站点依赖 nginx 才有意义
@@ -12,8 +12,8 @@ Type=oneshot
 # （install.sh 内部需要 sudo 写 /etc/nginx 和 reload nginx）
 User=admin
 Group=admin
-WorkingDirectory=/home/admin/XMQX-blog
-ExecStart=/home/admin/XMQX-blog/deploy/auto-deploy.sh
+WorkingDirectory=/data/XMQX-blog
+ExecStart=/data/XMQX-blog/deploy/auto-deploy.sh
 
 # 这套东西和同机的 novelcraft / bandgream 抢 CPU 和磁盘。
 # 夜间自动部署跑在业务后面，万一有性能问题也不会把线上服务带下去。
