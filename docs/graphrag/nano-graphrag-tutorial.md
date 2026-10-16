@@ -148,6 +148,25 @@ outline: [2, 3]
     <pre><span class="k">from</span> nano_graphrag <span class="k">import</span> GraphRAG
 graph = GraphRAG(working_dir=<span class="s">"./my_kg"</span>)
 graph.insert(<span class="s">"小李在杭州的茶百道工作……"</span>)   <span class="cm"># 把文档喂进去</span></pre>
+    <h4 id="l6-run">先跑通一次：完整脚本与预期输出</h4>
+    <p>光看这三行不知道跑起来是什么样。下面是一份<strong>可以直接复制运行</strong>的最小脚本（面向 OpenAI 官方接口）：</p>
+    <pre><span class="cm"># 1. 装依赖（Python 3.9+）：pip install nano-graphrag</span>
+<span class="cm"># 2. 设密钥（必填，默认用 OpenAI 的模型和 embedding）：export OPENAI_API_KEY="sk-..."</span>
+<span class="cm"># 3. 存成 run.py 后执行：python run.py</span>
+<span class="k">from</span> nano_graphrag <span class="k">import</span> GraphRAG, QueryParam
+graph = GraphRAG(working_dir=<span class="s">"./my_kg"</span>)
+docs = [
+    <span class="s">"小李在杭州的茶百道工作，负责新茶饮研发。"</span>,
+    <span class="s">"茶百道是一家 2008 年成立于成都的奶茶连锁品牌，总部位于成都。"</span>,
+]
+graph.insert(docs)   <span class="cm"># 这一步会调用 LLM 抽取实体关系，是全程最慢最花钱的一步</span>
+print(graph.query(<span class="s">"小李的公司成立于哪一年？"</span>, QueryParam(mode=<span class="s">"local"</span>)))</pre>
+    <p>预期输出（示意——文字会因模型而异，但<strong>类型一定是字符串、且能推出 2008</strong>）：</p>
+    <div class="box ex"><b class="hd">控制台看到的内容</b>
+      <pre>根据提供的资料，小李就职于茶百道；茶百道于 2008 年在成都成立。因此，小李的公司成立于 <strong>2008 年</strong>。</pre>
+      注意两点：<code>graph.query(...)</code> 返回的是<strong>一段字符串</strong>，不是对象；<code>graph.insert(...)</code> 期间屏幕会打出大量日志（分块、抽取、聚类、写报告各阶段的 INFO），属于正常现象。</div>
+    <div class="box sn"><b class="hd">没有 API key 怎么办</b>
+      仓库自带 <code>examples/no_openai_key_at_all.py</code>，用 Ollama 跑本地模型即可完整体验流程（质量差些，但产物结构一模一样。拿 DeepSeek 等 OpenAI 兼容服务也行：改 <code>best_model_func</code> / <code>embedding_func</code> 指向自家接口，见第 8 课地图里的 <code>_llm.py</code>）。</div>
     <p>这一行 <code>insert</code> 背后发生了 6 件事，每件都在磁盘 <code>./my_kg/</code> 留下产物：</p>
     <div class="flow" style="flex-direction:column">
       <div class="fbox f5">① 切块：长文按 1200 token 切成小块，每块算一个 MD5 编号（重复内容自动跳过）<small>产物：kv_store_text_chunks.json</small></div>
@@ -164,6 +183,36 @@ graph.insert(<span class="s">"小李在杭州的茶百道工作……"</span>)  
     </div>
     <div class="box sn"><b class="hd">提示</b>
       你不需要记住这 6 步的细节——但要记住它们的<strong>顺序</strong>：切块 → 抽取 → 合并 → 分组 → 报告 → 索引。第三部分（第 9~13 课）就是按这个顺序逐个展开的。</div>
+    <h4 id="l6-files">磁盘上的产物长什么样</h4>
+    <p>跑完那次最小脚本，<code>./my_kg/</code> 里会多出 5 个文件。用文本编辑器打开，能看到这类内容（字段与源码 <code>base.py</code> 的 Schema 一一对应）：</p>
+    <div class="box ex"><b class="hd">kv_store_text_chunks.json（切块 + 文档原文）</b>
+      <pre>{
+  "chunk-3f2a…": {
+    "tokens": 96,                                  <span class="cm"># 这块有多少 token</span>
+    "content": "小李在杭州的茶百道工作，负责新茶饮研发。",
+    "full_doc_id": "doc-8b1c…",                   <span class="cm"># 属于哪篇文档</span>
+    "chunk_order_index": 0                        <span class="cm"># 在文档中的序号</span>
+  }
+}</pre></div>
+    <div class="box ex"><b class="hd">kv_store_community_reports.json（社区报告，查询时读它）</b>
+      <pre>{
+  "0": {
+    "level": 0, "title": "茶百道公司与人员社区",
+    "nodes": ["小李","茶百道","杭州"],
+    "edges": [["小李","茶百道"],["茶百道","成都"]],
+    "chunk_ids": ["chunk-3f2a…","chunk-91dd…"],
+    "occurrence": 1.0,                            <span class="cm"># 覆盖原文块数 ÷ 最大社区的块数</span>
+    "sub_communities": [],
+    "report_json": {"title": "…", "summary": "…",
+                    "rating": 7, "findings": [{"summary": "…", "explanation": "…"}]}
+  }
+}</pre></div>
+    <div class="box ex"><b class="hd">graph_chunk_entity_relation.graphml（图 + 社区归属）</b>
+      <pre>&lt;node id="茶百道"&gt;
+  &lt;data key="clusters"&gt;[{"level":0,"cluster":0}]&lt;/data&gt;   <span class="cm"># 这个节点属于哪层哪个社区</span>
+  &lt;data key="source_id"&gt;chunk-3f2a…,chunk-91dd…&lt;/data&gt;    <span class="cm"># 哪些块提到了它</span>
+&lt;/node&gt;</pre>
+      图结构（谁连谁）以边的形式存在同一文件里；社区归属被塞进节点属性 <code>clusters</code>，这就是"图和社区天然一体"的含义。</div>
     <div class="box kp"><b class="hd">本课要点</b>
       insert 是离线的"读书"过程：文字 → 实体关系图 → 社区 → 社区报告 → 向量索引。所有产物都落在一个工作目录里，删掉目录 = 全部重来。</div>
   </div>
@@ -199,6 +248,19 @@ graph.query(<span class="s">"茶百道总部在哪？"</span>,           QueryPa
     </table>
     <div class="box an"><b class="hd">为什么要有 naive？</b>
       它是<strong>对照组</strong>。同一语料下，local/global 比 naive 好多少，就是"建图"带来的价值。做实验、写报告时非常有用——这也是 nano-graphrag 特意保留它的原因。</div>
+    <h4 id="l7-output">三种模式的预期输出（示意）</h4>
+    <p>同一份语料（第 6 课那两段），三种模式各问一次，打印结果分别长这样（文字是示意，<strong>结构和信息粒度是真实的</strong>）：</p>
+    <div class="box ex"><b class="hd">local —— 问"小李的公司成立于哪一年？"</b>
+      <pre>根据资料，小李就职于茶百道；茶百道于 2008 年在成都成立，因此答案是 2008 年。</pre>
+      短、直接、带出处链条——典型的事实问答。</div>
+    <div class="box ex"><b class="hd">global —— 问"这批文档整体讲了什么？"</b>
+      <pre>这批文档围绕"茶百道"这一新茶饮品牌展开：介绍了其总部所在地（成都）、成立时间（2008 年），
+以及一名在杭州研发岗位工作的员工小李。整体呈现"公司概况 + 人员构成"两类信息。</pre>
+      长、概括、跨社区——典型的主题综述。它<strong>不引用单个实体</strong>，而是把各社区报告的要点融成一段。</div>
+    <div class="box ex"><b class="hd">naive —— 问"茶百道总部在哪？"</b>
+      <pre>茶百道的总部位于成都（另有资料提到其成立于 2008 年）。</pre>
+      朴素 RAG 的口吻：直接复述检索到的原文块，不做跨块推理。</div>
+    <p>三个输出对比着看，"顺着人脉查 / 开总结大会 / 直接翻书"的差别就具体了。</p>
     <div class="box kp"><b class="hd">本课要点</b>
       local 问细节（沿图找）、global 问全局（读报告）、naive 兜底对照（翻原文）。第四部分（第 14~16 课）逐一拆解。</div>
   </div>
@@ -558,7 +620,20 @@ graph = GraphRAG(
       <div class="box sn" style="margin:8px 0"><b class="hd">第 2 步 · 打开工作目录看产物（20 分钟）</b>
         看 <code>working_dir</code> 下的 5 个文件：kv_store_*.json 里翻几条 chunk 和社区报告；graphml 文件用文本编辑器搜 <code>clusters</code>。把"第 6 课的 6 步流程"和磁盘文件对上号。</div>
       <div class="box sn" style="margin:8px 0"><b class="hd">第 3 步 · 打印中间上下文（30 分钟）</b>
-        查询时加 <code>QueryParam(mode="local", only_need_context=True)</code>——直接输出检索到的 CSV 上下文，不经过 LLM。你会亲眼看到四路证据长什么样、排序截断的效果，这是理解检索质量最快的途径。</div>
+         查询时加 <code>QueryParam(mode="local", only_need_context=True)</code>——直接输出检索到的 CSV 上下文，不经过 LLM。你会亲眼看到四路证据长什么样、排序截断的效果，这是理解检索质量最快的途径。返回的上下文形如：<pre style="margin:8px 0 0">-----Reports-----
+id,	content
+0,	# 茶百道公司与人员社区\\nThe community centers on…
+-----Entities-----
+id,	entity_type,	description
+小李,	person,	小李是茶百道的研发人员
+茶百道,	organization,	茶百道是一家 2008 年成立于成都的奶茶连锁品牌
+-----Relationships-----
+id,	source,	target,	description,	weight
+1,	小李,	茶百道,	小李就职于茶百道,	8
+-----Sources-----
+id,	content
+chunk-3f2a…,	小李在杭州的茶百道工作，负责新茶饮研发。</pre>
+         四个段落的顺序和内容，就是 local 查询真正喂给 LLM 的"证据清单"——检索好不好，一眼看穿。</div>
       <div class="box sn" style="margin:8px 0"><b class="hd">第 4 步 · 改一个东西试试（1 小时）</b>
         任选其一：① 改 <code>prompt.py</code> 里的 <code>DEFAULT_ENTITY_TYPES</code>，让抽取适配你的领域（如法律/医疗）；② 调 QueryParam 里的预算数字；③ 把 chunk_token_size 从 1200 改成 600 观察差异。<strong>改完跑对比，才算真学会。</strong></div>
       <div class="box sn" style="margin:8px 0"><b class="hd">第 5 步 · 带着问题读源码</b>
