@@ -35,6 +35,11 @@ npm run build      # 构建产物到 docs/.vitepress/dist
 npm run preview    # 预览构建结果
 ```
 
+> 注意：生产 nginx 直接以 `docs/.vitepress/dist` 为站点根目录，所以本地 `npm run build`
+> 会立即改动线上文件；而 CSP 里内联脚本的哈希只有跑 `./deploy/install.sh` 时才会重算，
+> 哈希对不上新构建时 VitePress 的启动脚本会被 CSP 拦截，表现为页面点链接没反应。
+> 构建后请务必跑一次 `./deploy/install.sh` 再算收工。
+
 ## 新增栏目 / 页面
 
 1. 在 `docs/` 下新建栏目目录（如 `docs/golang/`），添加 `index.md` 作为栏目首页；
