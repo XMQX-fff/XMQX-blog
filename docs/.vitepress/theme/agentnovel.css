@@ -189,6 +189,11 @@
 .vp-doc .an-doc .grid { display: grid; gap: 16px; }
 .vp-doc .an-doc .g2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
 .vp-doc .an-doc .g3 { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+/* 栅格子项允许收缩，否则卡内 <pre> 的长行会把列撑宽导致整页横向溢出 */
+.vp-doc .an-doc .grid > * { min-width: 0; }
+.vp-doc .an-doc pre { overflow-x: auto; }
+/* 行内代码里的长 token 在窄屏允许断行，避免撑出整页横向滚动 */
+.vp-doc .an-doc :not(pre) > code { overflow-wrap: anywhere; }
 
 .vp-doc .an-doc .card {
   background: var(--card);
@@ -267,7 +272,7 @@
   gap: 10px;
   align-items: flex-start;
 }
-.vp-doc .an-doc .note b { flex: none; display: inline; margin: 0; }
+.vp-doc .an-doc .note b { flex: 0 1 auto; min-width: 0; display: inline; margin: 0; }
 .vp-doc .an-doc .note > div { min-width: 0; }
 .vp-doc .an-doc .note.i { background: var(--brand-soft); border-color: var(--an-edge); color: var(--an-ink-indigo); }
 .vp-doc .an-doc .note.w { background: var(--warn-soft); border-color: var(--an-edge-warn); color: var(--an-ink-warn); }
@@ -313,7 +318,7 @@
   border-radius: 0;
   overflow: visible;
 }
-.vp-doc .an-doc .vs > div { padding: 0; background: none; }
+.vp-doc .an-doc .vs > div { padding: 0; background: none; min-width: 0; }
 .vp-doc .an-doc .vs .mid {
   font-weight: 800;
   color: var(--ink-3);

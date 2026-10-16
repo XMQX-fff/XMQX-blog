@@ -21,7 +21,7 @@ export default defineConfig({
       { text: 'GraphRAG 学习', link: '/graphrag/' },
       { text: 'LangGraph 学习', link: '/langgraph/' },
       { text: 'LangChain 学习', link: '/langchain/' },
-      { text: 'AgentNovel 设计文档', link: '/agentnovel/' },
+      { text: 'AgentNovel', link: '/agentnovel/' },
     ],
 
     sidebar: {
