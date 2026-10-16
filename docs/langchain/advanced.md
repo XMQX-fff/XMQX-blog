@@ -3,15 +3,26 @@
 本篇覆盖官方"高级用法"一组：上下文工程（方法论）、人在回路、多智能体、
 长期记忆与护栏。这五者共同服务于"从原型到生产"这一跨越。
 
+## 怎么读本篇
+
+- 第 1 节是**方法论**，读完后会用"上下文"的视角看智能体设计；
+- 第 2~5 节是四个可落地机制，每节都给了完整可运行示例；
+- 最后一节汇总了各能力的**最低版本要求**，上线前逐条核对。
+
 ## 1. 上下文工程
 
-### 为什么智能体会失败
+### 1.1 为什么智能体会失败
 
 官方指出两个原因：底层 LLM 能力不足，以及**未向模型提供"正确"的上下文**，
-并认为多数情况下后者才是主因。上下文工程即"以正确格式提供适当的信息与工具"，
-被称为 AI 工程师最重要的工作。其在 LangChain 中的落地机制是**中间件**。
+并认为多数情况下后者才是主因。
 
-### 三类上下文
+**名词解释：上下文工程（context engineering）。** 以正确的格式提供适当的
+信息和工具，使 LLM 能够完成任务。它被称为 AI 工程师最重要的工作——
+模型再强，喂给它的东西不对，输出照样错。其在 LangChain 中的落地机制是
+**中间件**：所有对"模型看到什么"的干预，都是某个中间件在某个时机
+改状态或改请求。
+
+### 1.2 三类上下文
 
 | 类别 | 作用范围 | 生命周期 |
 | --- | --- | --- |
@@ -19,10 +30,23 @@
 | **工具上下文** | 工具可读写的状态、存储、运行时上下文 | 持久 |
 | **生命周期上下文** | 模型与工具调用之间：摘要、护栏、日志 | 持久 |
 
+展开说：
+
+- **模型上下文**——模型每次开口前"眼前"的一切。改它有两种改法：
+  **临时**（只改这一次模型调用看到的，状态不动）和**持久**
+  （把改动写回状态，后续都受影响）。两者的边界是新手最常搞混的地方。
+- **工具上下文**——工具能碰到的数据：读状态（短期）、读写存储（长期）、
+  读运行时配置。
+- **生命周期上下文**——步骤**之间**发生的横切关注点：摘要历史、
+  过滤敏感内容、记录日志。这些不属于"模型看到什么"，而是
+  "在两个动作之间做点什么"。
+
 三类数据源贯穿始终：**运行时上下文**（静态配置，对话级）、
 **状态**（短期记忆，对话级）、**存储**（长期记忆，跨对话）。
+三类上下文 × 三类数据源的组合，就是"某个信息从哪来、影响多久"的
+定位坐标系。
 
-### 模型上下文的五个要素
+### 1.3 模型上下文的五个要素
 
 系统提示词、消息、工具、模型、响应格式——每一项都可来自三类数据源。
 动态调整的统一手法是 `request.override(...)`：
@@ -35,6 +59,7 @@ def state_aware_prompt(request: ModelRequest) -> str:
     if message_count > 10:
         base += "\n这是一段较长的对话，请格外简洁。"
     return base
+
 
 @wrap_model_call
 def inject_file_context(request, handler):
@@ -53,44 +78,62 @@ def inject_file_context(request, handler):
 - **持久**：返回带 `Command` 的 `ExtendedModelResponse`，
   或使用 `@before_model` / `@after_model` / `@wrap_tool_call`。
 
-两者混淆会带来"改了却没生效"或"不该留下却被永久写入"的问题。
+两者混淆会带来"改了却没生效"（改的是临时，却以为写进去了）或
+"不该留下却被永久写入"（写回了状态，污染后续所有轮次）的问题。
+**判断口诀：`wrap_model_call` 里默认都是临时的；想持久就要显式写状态。**
 :::
 
 工具的说明同样属于上下文——**工具定义不只是元数据，它们会引导模型**：
-过多导致上下文过载，过少则限制能力。
+过多导致上下文过载，过少则限制能力。这解释了为什么第 3 章的
+[动态工具选择](/langchain/components#3-6-动态工具选择工具太多时收敛上下文)值得投入精力。
 
-### 六条最佳实践
+### 1.4 六条最佳实践
 
-1. 从简单方案开始；
-2. 增量测试，每次只加一项功能；
-3. 监控性能（调用次数、token、延迟）；
-4. 优先使用内置中间件；
-5. 记录上下文策略；
-6. 理解临时更新与持久更新的区别。
+1. **从简单方案开始**——静态提示词 + 固定工具能跑，就别上动态；
+2. **增量测试，每次只加一项功能**——同时加三个中间件，
+   出问题无法归因；
+3. **监控性能**（调用次数、token、延迟）—— LangSmith 里看，
+   别凭感觉；
+4. **优先使用内置中间件**——Summarization、ToolSelector 这些
+   都是踩过坑的产物；
+5. **记录上下文策略**——写清楚"传了什么、为什么"，
+   三个月后的自己会感谢现在；
+6. **理解临时更新与持久更新的区别**——见上面的警告框。
 
 ## 2. 人在回路（Human-in-the-Loop）
 
 当模型提出敏感操作（写文件、执行 SQL、转账、发信）时暂停执行，
 图状态经 LangGraph 持久化层保存，由人工决定后再继续。
 
-### 四种决策
+**名词解释：中断（interrupt）。** 智能体执行到某处主动"挂起"，
+把控制权交还给外部（人），并把待决策信息作为载荷抛出。挂起期间
+状态存在 checkpointer 里，可以等一分钟，也可以等三天——
+异步审核因此成为可能。
 
-| 决策 | 行为 |
-| --- | --- |
-| `approve` | 原样执行 |
-| `edit` | 执行前修改参数 |
-| `reject` | 跳过执行，返回拒绝反馈 |
-| `respond` | 跳过执行，把人工消息作为**合成工具结果** |
+### 2.1 四种决策
+
+| 决策 | 行为 | 什么时候用 |
+| --- | --- | --- |
+| `approve` | 原样执行 | 常规确认 |
+| `edit` | 执行前修改参数 | 小修小补（改个收件人） |
+| `reject` | 跳过执行，返回拒绝反馈 | 否决，并告诉模型为什么 |
+| `respond` | 跳过执行，把人工消息作为**合成工具结果** | 工具本来就是"问人"（如 `ask_user`） |
 
 ::: danger 注意
-不要用 `respond` 拒绝**带副作用**的工具——其消息会被视为成功结果。
-多个工具同时暂停时，**决策顺序必须与中断请求中的操作顺序一致**。
+不要用 `respond` 拒绝**带副作用**的工具——其消息会被视为成功结果，
+模型以为事儿已经办完了。**拒绝一律用 `reject`**，它的 `message`
+会作为反馈进入对话，模型能理解"被否了，别重试"。
+
+多个工具同时暂停时，**决策顺序必须与中断请求中的操作顺序一致**——
+按收集到的顺序逐个决策，别自己挑着先批简单的。
+
 编辑参数需谨慎，大幅修改可能让模型重新评估方案、重复执行或意外操作。
 :::
 
-### 配置
+### 2.2 配置
 
 ```python
+from langchain.agents import create_agent
 from langchain.agents.middleware import HumanInTheLoopMiddleware
 from langgraph.checkpoint.memory import InMemorySaver
 
@@ -99,15 +142,19 @@ agent = create_agent(
     tools=[write_file, execute_sql, read_data],
     middleware=[HumanInTheLoopMiddleware(
         interrupt_on={
-            "write_file": True,
-            "execute_sql": {"allowed_decisions": ["approve", "reject"]},
-            "read_data": False,
+            "write_file": True,                                       # 全决策可用
+            "execute_sql": {"allowed_decisions": ["approve", "reject"]},  # 不许编辑
+            "read_data": False,                                        # 只读，直接放行
         },
         description_prefix="工具执行待审批",
     )],
     checkpointer=InMemorySaver(),     # 必须
 )
 ```
+
+`interrupt_on` 的值即"该工具的审批策略"：`True`=默认配置（四种决策全开），
+`False`=自动批准，`dict`=`InterruptOnConfig`（可用 `allowed_decisions`
+限制决策类型、`description` 自定义给审核人看的描述）。
 
 恢复执行：
 
@@ -124,8 +171,13 @@ agent.invoke(
 # {"type": "respond", "message": "..."}
 ```
 
+**名词解释：`Command(resume=...)`。** 与中断配对的另一半原语：
+把人工的决策作为"返回值"填回挂起点，图从那里继续跑。
+`version="v2"` 时返回的是 `GraphOutput`，其 `.interrupts` 属性直接
+列出待审核事项，不用自己从流里捞。
+
 **条件中断**可用 `when` 谓词按请求内容决定是否暂停
-（需 `langchain>=1.3.3`）：
+（需 `langchain>=1.3.3`）——比如只拦非 `SELECT`：
 
 ```python
 "execute_sql": {
@@ -145,7 +197,7 @@ agent.invoke(
 
 ## 3. 多智能体系统
 
-### 何时需要拆分
+### 3.1 何时需要拆分
 
 单个智能体出现下列信号时，应考虑多智能体：
 
@@ -153,7 +205,13 @@ agent.invoke(
 - **上下文或记忆过于庞大**；
 - 任务本身需要**专业化分工**（规划者、研究员、数学专家）。
 
-### 两种模式
+::: warning 不是万金油
+多智能体并非默认选项。官方明确说拆分的前提是"工具过多、
+上下文过复杂、需要多领域"——**先确认确实遭遇这些瓶颈**。
+过早拆分，仅通信协议的复杂度就足以抵消其收益。
+:::
+
+### 3.2 两种模式
 
 | 模式 | 控制流 | 适用 |
 | --- | --- | --- |
@@ -163,23 +221,60 @@ agent.invoke(
 选择依据：需要集中式控制 → 工具调用；
 希望智能体直接与用户交互 → 交接；两者**可混合使用**。
 
-### 工具调用模式
+### 3.3 工具调用模式（完整例子）
 
 四步流程：控制器决定 → 工具智能体运行 → 返回结果 → 控制器继续或完成。
+下面是一个可以直接跑的"研究主管"：
 
 ```python
-researcher = create_agent(model="openai:gpt-5.5", tools=[...])
+from langchain.agents import create_agent
+from langchain.tools import tool
 
+
+def web_search(query: str) -> str:
+    """搜索互联网。"""
+    ...
+
+
+# 子智能体：专门干调研，工具集收窄
+researcher = create_agent(
+    model="openai:gpt-5.5",
+    tools=[web_search],
+    system_prompt="你是研究员，负责收集事实并给出带引用的结论。",
+)
+
+
+# 主管把子智能体包装成一个工具
 @tool("researcher", description="针对给定主题执行深度调研并返回结论")
 def call_researcher(query: str) -> str:
     """调用调研子智能体。"""
     result = researcher.invoke({"messages": [{"role": "user", "content": query}]})
-    return result["messages"][-1].content
+    return result["messages"][-1].text   # 只把最终结论交回主管
 
-agent = create_agent(model="openai:gpt-5.5", tools=[call_researcher])
+
+agent = create_agent(
+    model="openai:gpt-5.5",
+    tools=[call_researcher],
+    system_prompt="你是主管。需要事实时调用 researcher，最后综合成报告。",
+)
+
+result = agent.invoke({"messages": [{"role": "user", "content": "调研一下 GraphRAG 的适用场景"}]})
+print(result["messages"][-1].text)  # （示意）一份综合了研究员结论的报告
 ```
 
-需要把子智能体结果写回主状态时，用 `Command` 合并：
+消息流（调试时可以打印 `result["messages"]` 对照）：
+
+```text
+Human: 调研一下 GraphRAG 的适用场景
+AI:     Tool Calls: researcher({'query': '...'})        ← 主管决定派活
+Tool:  （子智能体的最终结论）                            ← 结论，不是过程
+AI:     （主管基于结论写的最终报告）
+```
+
+**关键观察：主管只看到结论，看不到子智能体的中间推理。**
+这正是上下文隔离的意义——子智能体可以翻 20 个网页，
+主管的上下文里只多一条最终结论。需要把子智能体结果写回主状态时，
+用 `Command` 合并：
 
 ```python
 def call_researcher(
@@ -196,16 +291,14 @@ def call_researcher(
     })
 ```
 
-### 需要定制的四个位置
-
-1. 子智能体的**名称**；
-2. 子智能体的**描述**（直接决定主智能体何时调用它）；
-3. **对子智能体的输入**（修改提示，或从状态注入消息历史）；
-4. **来自子智能体的输出**（指定返回内容，或自定义输出格式化）。
+需要定制的四个位置：子智能体的**名称**、**描述**（直接决定主智能体
+何时调用它）、**对子智能体的输入**（修改提示，或从状态注入消息历史）、
+**来自子智能体的输出**（指定返回内容，或自定义输出格式化）。
 
 ::: warning 常见失败模式
 子智能体完成了工具执行与推理，**却没有把结论放进最终消息**——
 控制器与用户只能看到中间过程，任务因此看似"无产出"。
+子智能体的系统提示词里要明确要求"最后一条消息必须是结论"。
 :::
 
 官方强调：多智能体系统的质量**严重依赖于上下文工程**——
@@ -219,7 +312,7 @@ def call_researcher(
 底层是 LangGraph 存储（`BaseStore`），数据以 JSON 文档保存，
 用**命名空间 + 键**组织——命名空间类似文件夹，键类似文件名。
 
-### 创建存储
+### 4.1 创建存储
 
 ```python
 from langgraph.store.memory import InMemoryStore
@@ -234,7 +327,7 @@ agent = create_agent(model=..., tools=[...], store=store)
 需要向量检索时，为 `InMemoryStore(index=IndexConfig(embed=embed, dims=n))`
 配置嵌入即可支持 `store.search(..., query=...)` 的语义查询。
 
-### 从工具读写
+### 4.2 从工具读写
 
 ```python
 @tool
@@ -255,6 +348,12 @@ runtime.store.get(("users",), user_id)   # 返回 StoreValue：value + metadata
 `assert runtime.store is not None` 是必要的——
 未配置 `store` 时该属性为 `None`。
 
+**名词解释：命名空间 + 键。** `put(namespace, key, value)` 的三段式：
+`("users",)` 是文件夹，`user_id` 是文件名，`dict(user_info)` 是内容。
+`store.get(namespace, key)` 精确取，`store.search(namespace)` 列目录，
+`store.search(namespace, query="...")` 语义搜（需配嵌入）。
+想要"按用户隔离"，就把 user_id 编进命名空间或键里。
+
 ## 5. 护栏
 
 护栏在关键节点验证与过滤内容：防 PII 泄露、阻止提示词注入、屏蔽有害内容、
@@ -267,7 +366,12 @@ runtime.store.get(("users",), user_id)   # 返回 StoreValue：value + metadata
 | **确定性护栏** | 正则、关键词、显式检查——快、可预测、低成本，但可能漏掉细微违规 |
 | **基于模型的护栏** | LLM 或分类器语义评估——能发现规则遗漏，但更慢更贵 |
 
-### 内置护栏：PII 检测
+**名词解释：为什么需要两类。** 正则能挡住 `sk-[a-zA-Z0-9]{32}` 这种
+有固定形状的东西，但挡不住"委婉索要密钥"的话术；模型反过来，
+能理解语义但不稳定、慢、花钱。生产上两者叠加：
+确定性护栏做第一道粗筛，模型护栏兜细腻场景。
+
+### 5.1 内置护栏：PII 检测
 
 ```python
 from langchain.agents.middleware import PIIMiddleware
@@ -287,7 +391,7 @@ PIIMiddleware("api_key", detector=r"sk-[a-zA-Z0-9]{32}", strategy="block",
 当 `apply_to_output=True` 时还会经注册的流转换器**遮蔽流式输出**
 （文本增量、工具调用参数、工具输出、状态快照），需 `langchain>=1.3.2`。
 
-### 内置护栏：人在回路
+### 5.2 内置护栏：人在回路
 
 适用于金融转账、删除或修改生产数据、对外发送消息：
 
@@ -297,7 +401,7 @@ interrupt_on={"send_email": True, "delete_database": True, "search": False}
 
 配置与恢复方式见上文[人在回路](#2-人在回路human-in-the-loop)一节。
 
-### 自定义护栏
+### 5.3 自定义护栏
 
 **执行前**（`before_agent`）——身份验证、速率限制、阻断不当请求：
 
@@ -320,6 +424,7 @@ def safety_guardrail(state: AgentState, runtime) -> dict | None:
 ```
 
 多个护栏加入 `middleware` 数组即**按顺序执行**，形成分层防护。
+顺序原则同第 5 章总述：**确定性在前，模型在后**。
 
 ## 6. 关于检索（RAG）
 
@@ -338,15 +443,17 @@ def safety_guardrail(state: AgentState, runtime) -> dict | None:
 | `ProviderStrategy(strict=...)` | `langchain>=1.2` |
 | `execution_info` / `server_info` | `deepagents>=0.5.0` 或 `langgraph>=1.1.5` |
 | `version="v2"` 流式格式（`StreamPart` / `GraphOutput`） | LangGraph 1.1+ |
-| 事件流类型化投影 API（`stream_events(..., version="v3")`） | LangChain v1.3+ |
+| 事件流类型化投影 API（`stream_events` v3） | LangChain v1.3+ |
 | MCP 适配器 | `langchain[mcp]>=1.4.0`（Beta） |
 
 ## 8. 小结
 
 - 上下文工程是方法论：区分模型、工具、生命周期三类上下文，
-  以及临时更新与持久更新的差别。
+  以及临时更新与持久更新的差别——一切"模型看到什么"的问题
+  都往这个坐标系里归位。
 - 人在回路与护栏均依赖中间件与 checkpointer，`respond` 不可用于拒绝副作用操作。
-- 多智能体的本质仍是上下文工程：控制每个子智能体看到什么、交出什么。
+- 多智能体的本质仍是上下文工程：控制每个子智能体看到什么、交出什么；
+  先确认瓶颈再拆分。
 - 长期记忆经 `store` 跨对话存取，生产必须使用数据库后端。
 - 高级能力多有最低版本要求，上线前应集中核对。
 
