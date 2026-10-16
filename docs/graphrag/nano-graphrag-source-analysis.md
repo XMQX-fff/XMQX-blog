@@ -10,7 +10,7 @@ outline: [2, 3]
 <div class="stat-row"><span class="stat-chip">核心 ~2900 行</span> <span class="stat-chip">3 种检索模式</span> <span class="stat-chip">可插拔存储</span></div>
 <section id="s1">
   <div class="sec-head"><span class="sec-num">01</span><h2 id="s1">项目概览与设计哲学</h2></div>
-  <p class="sec-lead">nano-graphrag 是微软 GraphRAG 的极简重实现：约 1100 行核心代码（不含测试与 Prompt），保留了图索引 + 社区报告 + 多模式检索的全部核心能力。</p>
+  <p class="sec-lead">nano-graphrag 是微软 GraphRAG 的极简重实现：官方 README 自称约 1100 行（不含测试与 Prompt 的历史口径），按当前 main 分支实测核心文件合计约 2900 行，保留了图索引 + 社区报告 + 多模式检索的全部核心能力。</p>
   <div class="grid3">
     <div class="feat"><div class="ico">🧬</div><h4 id="s1-1">小而完整</h4><p>剔除官方实现的复杂基建（配置系统、流水线框架、CLI），只保留「文档→知识图谱→社区→检索」这条主干，每一行都可读可改。</p></div>
     <div class="feat"><div class="ico">🔌</div><h4 id="s1-2">全组件可插拔</h4><p>LLM、Embedding、向量库、图存储、KV 存储、分块函数、实体抽取器全部通过 dataclass 字段注入，换组件只改一个参数。</p></div>
@@ -33,7 +33,7 @@ outline: [2, 3]
       <h4 id="s1-8">😊 nano-graphrag</h4>
       <ul>
         <li>单文件主流程，数据类即配置</li>
-        <li>核心 ~1100 行，一晚上可通读</li>
+        <li>核心约 2900 行（README 口径 1100 行），一晚上可通读</li>
         <li>OpenAI / Azure / Bedrock / Ollama 均可</li>
         <li>改 Prompt、换存储只需动几行</li>
       </ul>
@@ -112,7 +112,7 @@ outline: [2, 3]
   <h3 id="s3-13">__post_init__ 装配流程</h3>
   <div class="steps">
     <div class="step"><h4 id="s3-14">构造 TokenizerWrapper</h4><p>按 <code class="inline">tokenizer_type</code> 选择 tiktoken（gpt-4o）或 HuggingFace tokenizer，统一 encode/decode/decode_batch 接口。</p></div>
-    <div class="step"><h4 id="s3-15">供应商适配</h4><p><code class="inline">using_azure_openai</code> / <code class="inline">using_amazon_bedrock</code> 为真时，仅当用户未自定义时才替换默认的 model_func / embedding_func（尊重用户注入）。</p></div>
+    <div class="step"><h4 id="s3-15">供应商适配</h4><p><code class="inline">using_azure_openai</code> 为真时，仅当用户未自定义（仍是默认的 openai 函数）时才替换为 Azure 版本；<code class="inline">using_amazon_bedrock</code> 为真时则无条件替换为 Bedrock 版函数。</p></div>
     <div class="step"><h4 id="s3-16">实例化存储</h4><p>用 <code class="inline">asdict(self)</code> 把整个配置快照传给每个存储的 <code class="inline">global_config</code>——存储实例反向读取配置的约定由此建立。依次创建 full_docs、text_chunks、llm_response_cache、community_reports（KV）与 chunk_entity_relation_graph（Graph）。</p></div>
     <div class="step"><h4 id="s3-17">条件创建向量库</h4><p><code class="inline">enable_local → entities_vdb</code>（meta_fields 只存 entity_name）；<code class="inline">enable_naive_rag → chunks_vdb</code>。</p></div>
     <div class="step"><h4 id="s3-18">函数包装</h4><p>embedding / best_model / cheap_model 全部套上 <code class="inline">limit_async_func_call(max_async)</code> 限流；两个 model_func 再 partial 注入 <code class="inline">hashing_kv=llm_response_cache</code> 完成缓存接线。</p></div>
@@ -425,5 +425,5 @@ response = <span class="k">await</span> openai_async_client.chat.completions.cre
     <div class="step"><h4 id="s12-78">5 分钟 · 跑一遍</h4><p>用 examples/no_openai_key_at_all.py 或接自己的 LLM 跑通 insert + 三种 query，观察 working_dir 下的产物文件——把代码与磁盘形态对上，理解闭环。</p></div>
   </div>
   <div class="note good"><b>一句话总结</b>
-    nano-graphrag 用「可插拔存储抽象 + 内容寻址幂等 + token 预算治理 + 层级社区报告」四根柱子，把微软 GraphRAG 的方法论压缩进 1100 行可运行的教学级实现——它最好的用法不仅是使用，更是当作 GraphRAG 的可执行论文来读。</div>
+    nano-graphrag 用「可插拔存储抽象 + 内容寻址幂等 + token 预算治理 + 层级社区报告」四根柱子，把微软 GraphRAG 的方法论压缩进一个晚上即可通读的教学级实现（README 口径约 1100 行，实测核心约 2900 行）——它最好的用法不仅是使用，更是当作 GraphRAG 的可执行论文来读。</div>
 </section>

@@ -132,7 +132,7 @@ outline: [2, 3]
       <tr><td>信息孤岛</td><td>同一实体在图里是<strong>同一个节点</strong>，所有文档里的描述都合并挂在这个节点上</td></tr>
     </table>
     <div class="box kp"><b class="hd">本课要点 · 第一部分收尾</b>
-      GraphRAG = 先用 LLM 把语料"读薄"成知识图谱 + 社区报告，再基于图回答问题。nano-graphrag 就是这条路线约 1100 行代码的最小完整版。<strong>接下来五课先看全景，再逐站拆解。</strong></div>
+      GraphRAG = 先用 LLM 把语料"读薄"成知识图谱 + 社区报告，再基于图回答问题。nano-graphrag 就是这条路线的最小完整版（官方 README 口径约 1100 行、不含测试与 Prompt；按当前源码实测核心约 2900 行，见参考手册第 1 章）。<strong>接下来五课先看全景，再逐站拆解。</strong></div>
   </div>
 </section>
 <!-- ==================== 第二部分 ==================== -->
@@ -477,7 +477,7 @@ level 2:        [小组A1] [小组A2]      [小组B1] [小组B2]
         <span class="k">if</span> tokens > max_token_size:
             <span class="k">return</span> list_data[:i]                  <span class="cm"># 装满就停，返回前缀</span>
     <span class="k">return</span> list_data</pre>
-    <p>它在源码里出现了十几次，每次调用前<strong>列表都已经排好序</strong>，所以"返回前缀"＝"保留最重要的"。这就是前面各课反复看到的"预算 4000 tokens""按评分截断"背后的同一行代码。</p>
+    <p>它在源码里出现了十余处（`_op.py` 中 10 处调用），每次调用前<strong>列表都已经排好序</strong>，所以"返回前缀"＝"保留最重要的"。这就是前面各课反复看到的"预算 4000 tokens""按评分截断"背后的同一行代码。</p>
     <div class="box sn"><b class="hd">预算从哪来？</b>
       写入侧：预算 = 模型窗口 − 提示词模板开销（<code>best_model_max_token_size</code> 减去模板长度）。<br>
       查询侧：预算写死在 <code>QueryParam</code> 里（local 三路 4000+4800+3200，global 16384），你可以按自己模型的窗口改这几个数。</div>

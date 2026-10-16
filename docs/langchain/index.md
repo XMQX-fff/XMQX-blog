@@ -18,7 +18,7 @@
 | [智能体与运行框架](/langchain/agents) | `create_agent`、`AgentState`、调用与流式、中间件能力分类 | 本栏目的核心章节 |
 | [模型·消息·工具](/langchain/components) | 标准模型接口、四类消息、`@tool` 与 `ToolRuntime` | 使用任何组件前的必读内容 |
 | [记忆·流式·结构化输出](/langchain/context-output) | checkpointer、三种 stream mode、`response_format` | 对话类与结构化场景 |
-| [中间件与运行时](/langchain/middleware-runtime) | 钩子体系、12 个预置中间件、`Runtime` 依赖注入 | 需要定制行为的读者 |
+| [中间件与运行时](/langchain/middleware-runtime) | 钩子体系、预置中间件、`Runtime` 依赖注入 | 需要定制行为的读者 |
 | [上下文工程与高级能力](/langchain/advanced) | 三类上下文、人在回路、多智能体、长期记忆、护栏 | 面向生产的读者 |
 
 ## 推荐学习路线

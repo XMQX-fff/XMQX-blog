@@ -121,7 +121,7 @@ agent.invoke(
 )
 # {"type": "edit", "edited_action": {"name": ..., "args": {...}}}
 # {"type": "reject", "message": "用户拒绝该操作，请勿重试此工具调用。"}
-# {"type": "respond", "content": "..."}
+# {"type": "respond", "message": "..."}
 ```
 
 **条件中断**可用 `when` 谓词按请求内容决定是否暂停
@@ -337,7 +337,8 @@ def safety_guardrail(state: AgentState, runtime) -> dict | None:
 | PII 流式遮蔽 | `langchain>=1.3.2` |
 | `ProviderStrategy(strict=...)` | `langchain>=1.2` |
 | `execution_info` / `server_info` | `deepagents>=0.5.0` 或 `langgraph>=1.1.5` |
-| 类型化投影 API / `version="v2"` | LangGraph 1.1+ |
+| `version="v2"` 流式格式（`StreamPart` / `GraphOutput`） | LangGraph 1.1+ |
+| 事件流类型化投影 API（`stream_events(..., version="v3")`） | LangChain v1.3+ |
 | MCP 适配器 | `langchain[mcp]>=1.4.0`（Beta） |
 
 ## 8. 小结

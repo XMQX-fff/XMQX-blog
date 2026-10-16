@@ -19,7 +19,7 @@ hero:
 features:
   - icon: 🤖
     title: LangGraph 学习
-    details: 跟着官方中文文档啃下来的一条主线笔记：从图 API、智能体架构到持久化、人机协作与流式输出，七篇串成一条线。
+    details: 跟着官方中文文档啃下来的一条主线笔记：从图 API、智能体架构到持久化、人机协作与流式输出，六篇串成一条线。
     link: /langgraph/
     linkText: 进入栏目
   - icon: 🧩

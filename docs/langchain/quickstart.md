@@ -100,11 +100,18 @@ LLM 存在明显延迟，逐步呈现输出可显著改善体验：
 for chunk in agent.stream(
     {"messages": [{"role": "user", "content": "旧金山的天气怎么样？"}]},
     stream_mode="messages",
+    version="v2",
 ):
     if chunk["type"] == "messages":
         token, metadata = chunk["data"]
         print(token.text, end="", flush=True)
 ```
+
+::: tip 版本格式
+`chunk["type"]` / `chunk["data"]` 是 `version="v2"` 的统一数据块格式（`StreamPart`），
+需 LangGraph 1.1+。不传 `version` 时默认为 v1 格式——直接产出 `(token, metadata)`
+元组，用 `chunk["type"]` 取值会直接报错。
+:::
 
 三种常用 `stream_mode`：
 

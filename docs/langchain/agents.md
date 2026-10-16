@@ -170,10 +170,13 @@ create_agent(model=..., name="researcher", ...)
 
 ## 6. 调用的版本
 
-v1 之后，`invoke` / `stream` 支持 `version="v2"`，返回带 `.value` 与
-`.interrupts` 的 `GraphOutput`；LangGraph 1.1 起提供事件流类型化投影 API，
-为消息、状态值、工具调用与子图提供独立迭代器，无需再按 `stream_mode`
-分支处理。旧代码仍可使用 v1/v3 格式。
+`invoke` / `stream` 支持 `version="v2"`（需 LangGraph 1.1+）：无论单模式还是
+多模式，每个数据块都是带 `type` / `ns` / `data` 的 `StreamPart`，不再需要
+元组解包；`invoke` 则返回带 `.value` 与 `.interrupts` 的 `GraphOutput`。
+新应用可进一步使用 LangChain v1.3 引入的**事件流类型化投影 API**
+（`stream_events(..., version="v3")` 配合 `.messages` / `.values` /
+`.interleave(...)` 等独立迭代器），为消息、状态值、工具调用与子图提供
+统一入口，无需再按 `stream_mode` 分支处理。旧代码仍可使用 v1 格式。
 
 ## 7. 小结
 

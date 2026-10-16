@@ -126,7 +126,11 @@ for chunk in agent.stream({"messages": [...]}, stream_mode="updates"):
 **② LLM 令牌**（`messages`）——打字机效果：
 
 ```python
-for chunk in agent.stream({"messages": [...]}, stream_mode="messages"):
+for chunk in agent.stream(
+    {"messages": [...]},
+    stream_mode="messages",
+    version="v2",
+):
     if chunk["type"] == "messages":
         token, metadata = chunk["data"]
         print(token.text, end="", flush=True)
@@ -146,7 +150,7 @@ def query_city(city: str) -> str:
 ```
 
 `get_stream_writer()` 自动绑定当前执行上下文，无需手动传递。
-多模式组合用 `stream_mode=["updates", "custom"]`，
+多模式组合用 `stream_mode=["updates", "custom"]` 并传 `version="v2"`，
 每块是带 `type` / `ns` / `data` 的 `StreamPart`。
 
 ### 推理令牌与流式工具调用

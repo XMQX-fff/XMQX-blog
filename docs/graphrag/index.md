@@ -1,6 +1,6 @@
 # GraphRAG 学习
 
-本栏目围绕开源项目 [nano-graphrag](https://github.com/gusye1234/nano-graphrag)（微软 GraphRAG 的极简实现，约 1100 行核心代码）整理的系列学习资料。
+本栏目围绕开源项目 [nano-graphrag](https://github.com/gusye1234/nano-graphrag)（微软 GraphRAG 的极简实现：官方 README 口径约 1100 行、按当前源码实测核心约 2900 行）整理的系列学习资料。
 
 ## 这两份资料是什么？
 

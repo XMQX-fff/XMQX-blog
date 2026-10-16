@@ -12,8 +12,8 @@
   - 概览与学习路线 — `docs/langgraph/index.md`
   - 开篇 / 快速上手 / 图 API / 智能体架构 / 持久化与记忆 / 人机协作与流式输出
 - **GraphRAG 学习**：围绕 [nano-graphrag](https://github.com/gusye1234/nano-graphrag) 的系列资料
-  - 从入门到理解（初学者教程）— `docs/public/graphrag/nano-graphrag-tutorial.html`
-  - 源码深度解析（参考手册）— `docs/public/graphrag/nano-graphrag-source-analysis.html`
+  - 从入门到理解（初学者教程）— `docs/graphrag/nano-graphrag-tutorial.md`
+  - 源码深度解析（参考手册）— `docs/graphrag/nano-graphrag-source-analysis.md`
 - 更多栏目持续扩展中…
 
 ## 本地开发
@@ -28,7 +28,9 @@ npm run preview    # 预览构建结果
 ## 新增栏目 / 页面
 
 1. 在 `docs/` 下新建栏目目录（如 `docs/golang/`），添加 `index.md` 作为栏目首页；
-2. 静态页面（HTML）放入 `docs/public/<栏目>/`，访问路径为 `/<栏目>/xxx.html`；
+2. 内容页一律写成 `.md` 放在栏目目录下（长文档也可整篇用 HTML 写进 `.md`，
+   由 `deploy/markdown-it-html-headings` 插件补目录；早期"整页 HTML 放
+   `docs/public/`"的方案已废弃，`docs/public/` 不存在了）；
 3. 在 `docs/.vitepress/config.mts` 中：
    - `nav` 添加顶栏入口；
    - `sidebar` 添加对应路径前缀的侧边栏分组（父目录 + 子页面）。

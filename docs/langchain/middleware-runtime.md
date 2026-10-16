@@ -74,7 +74,9 @@ class MyMiddleware(AgentMiddleware):
 
 ## 3. 预置中间件
 
-官方提供 12 个预置实现，可直接组合使用：
+官方中间件文档列举了 12 个常用预置实现，可直接组合使用
+（langchain 1.4 起还提供了 `ModelRetryMiddleware`、`ToolErrorMiddleware`、
+`ProviderToolSearchMiddleware` 等更多实现，以 API 参考为准）：
 
 ### 记忆与上下文
 
@@ -186,7 +188,7 @@ def gate(state: AgentState, runtime: Runtime[Context]) -> dict | None:  # 节点
 ## 6. 小结
 
 - 中间件是控制循环的唯一入口，分节点式与包装式两类钩子。
-- 12 个预置中间件覆盖记忆、安全、限制、回退、效率、测试六类需求。
+- 官方文档列举的 12 个预置中间件覆盖记忆、安全、限制、回退、效率、测试六类需求。
 - `Runtime` 提供 context / store / stream_writer / execution_info / server_info，
   等价于依赖注入。
 - 组合次序即执行次序，护栏须按"廉价在前、昂贵在后"排列。
