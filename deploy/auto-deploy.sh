@@ -16,6 +16,8 @@
 #     注意回滚用的是那个提交自己的 deploy/install.sh —— 如果坏掉的正是
 #     install.sh 本身，那 `git reset --hard` 已经把它一起换回去了，
 #     所以回滚路径不会踩到同一个坑。
+#   * install.sh 抢不到锁时以退出码 75 退出，表示「另有部署在并行」。
+#     这种情况视为跳过而非失败，绝不回滚（见下方 rc 判断）。
 #   * 全程 flock，和手动 install.sh 互斥，不会两边同时改 dist。
 
 set -euo pipefail
@@ -137,10 +139,28 @@ if [[ -n "$last_good" ]] && [[ $FORCE -eq 0 ]]; then
 fi
 
 # ---------------------------------------------------------------- 部署
-if bash "$INSTALL_SH"; then
+# install.sh 的退出码约定：
+#   0  = 成功
+#   75 = 锁被另一次部署持有（并发撞锁），本次跳过
+#   其他 = 真的失败，走回滚
+set +e
+bash "$INSTALL_SH"
+rc=$?
+set -e
+
+if [[ $rc -eq 0 ]]; then
 	echo "$head_now" > "$LAST_GOOD"
 	echo "$(date -Is) 成功 $head_now" > "$LAST_RESULT"
 	log "部署成功 $head_now"
+	exit 0
+fi
+
+# 锁冲突不是失败：另一边的部署正在干活，状态由它自己写。此时绝不可以
+# 回滚——git reset --hard 会把并发部署（可能就是正在构建的那一个）的
+# 工作区 reset 回旧提交，线上 dist 也会在它构建期间被抽换。
+if [[ $rc -eq 75 ]]; then
+	log "另一次部署正在进行（install.sh 锁冲突），本次跳过，不回滚"
+	echo "$(date -Is) 跳过(锁冲突) $head_now" > "$LAST_RESULT"
 	exit 0
 fi
 
@@ -151,6 +171,17 @@ printf '%s [auto-deploy] %s\n' "$(date -Is)" "$warn_msg" >&2
 if [[ -z "$last_good" ]]; then
 	echo "$(date -Is) 失败(无回滚点) $head_now" > "$LAST_RESULT"
 	die "首次部署就失败，没有可回滚的提交。线上保持原样，请手动排查。"
+fi
+
+# 回滚前再确认一次：并发（或紧接着的另一次）部署可能已经把这个提交
+# 成功部署上去了——那种情况下 last-good-sha 已经等于 head_now，
+# 没有什么可回滚的，reset 反而会把好端端的线上版本弄坏。
+current_good="$(read_state LAST_GOOD)"
+[[ "$current_good" == "<无>" ]] && current_good=""
+if [[ -n "$current_good" && "$current_good" == "$head_now" ]]; then
+	log "$head_now 已被另一次部署成功上线，无需回滚"
+	echo "$(date -Is) 成功(并发部署) $head_now" > "$LAST_RESULT"
+	exit 0
 fi
 
 log "回滚到 $last_good"
@@ -166,9 +197,21 @@ fi
 
 git reset --hard --quiet "$last_good"
 
-if bash "$INSTALL_SH"; then
+set +e
+bash "$INSTALL_SH"
+rollback_rc=$?
+set -e
+
+if [[ $rollback_rc -eq 0 ]]; then
 	echo "$(date -Is) 失败后已回滚到 $last_good（问题提交 $head_now）" > "$LAST_RESULT"
 	die "已回滚到 $last_good，线上恢复正常。问题提交 $head_now 见 journal。"
+fi
+
+if [[ $rollback_rc -eq 75 ]]; then
+	# 回滚构建也被锁挡住。此时 git 已回到 last_good、线上还是上一个可用
+	# 版本，状态自洽；下一次运行会重新拉取并尝试部署新提交。
+	echo "$(date -Is) 失败且回滚被锁跳过 $head_now" > "$LAST_RESULT"
+	die "回滚构建被锁挡住（另有部署在进行）。git 已回到 $last_good，线上为上一可用版本，下次运行会重试。"
 fi
 
 echo "$(date -Is) 失败且回滚也失败 (坏提交 $head_now)" > "$LAST_RESULT"
