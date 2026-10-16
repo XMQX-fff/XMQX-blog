@@ -14,6 +14,16 @@
 - **GraphRAG 学习**：围绕 [nano-graphrag](https://github.com/gusye1234/nano-graphrag) 的系列资料
   - 从入门到理解（初学者教程）— `docs/graphrag/nano-graphrag-tutorial.md`
   - 源码深度解析（参考手册）— `docs/graphrag/nano-graphrag-source-analysis.md`
+- **AgentNovel 设计文档**：NovelCraft（AI 小说创作系统）的设计文档（`docs/agentnovel/`，
+  整页 HTML 由 `deploy/html2vp.py` 转换，样式在 `docs/.vitepress/theme/agentnovel.css`）
+  - 总览：把「跟 LLM 聊天写小说」变成一条可控的创作流水线 — `docs/agentnovel/index.md`
+  - LangGraph 编排设计 — `docs/agentnovel/graph.md`
+  - 检索系统（RAG）设计详解 — `docs/agentnovel/rag.md`
+  - 护栏（Guardrails）设计 — `docs/agentnovel/guardrails.md`
+  - 护栏工程实现报告 — `docs/agentnovel/guardrails-report.md`
+  - 人在回路（HITL）详细设计 — `docs/agentnovel/hitl.md`
+  - 去 AI 味提示词工程详细设计 — `docs/agentnovel/deai.md`
+  - 实体归一化（角色别名）详细设计 — `docs/agentnovel/entity.md`
 - 更多栏目持续扩展中…
 
 ## 本地开发

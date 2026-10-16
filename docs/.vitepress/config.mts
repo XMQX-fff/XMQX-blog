@@ -21,6 +21,7 @@ export default defineConfig({
       { text: 'GraphRAG 学习', link: '/graphrag/' },
       { text: 'LangGraph 学习', link: '/langgraph/' },
       { text: 'LangChain 学习', link: '/langchain/' },
+      { text: 'AgentNovel 设计文档', link: '/agentnovel/' },
     ],
 
     sidebar: {
@@ -63,6 +64,22 @@ export default defineConfig({
             { text: '记忆 · 流式 · 结构化输出', link: '/langchain/context-output' },
             { text: '中间件与运行时', link: '/langchain/middleware-runtime' },
             { text: '上下文工程与高级能力', link: '/langchain/advanced' },
+          ],
+        },
+      ],
+      '/agentnovel/': [
+        {
+          text: 'AgentNovel 设计文档',
+          collapsed: false,
+          items: [
+            { text: '系统设计与实现总览', link: '/agentnovel/' },
+            { text: '图引擎：LangGraph 设计详解', link: '/agentnovel/graph' },
+            { text: '人在回路（HITL）', link: '/agentnovel/hitl' },
+            { text: '检索系统（RAG）', link: '/agentnovel/rag' },
+            { text: 'Guardrails 护栏工程', link: '/agentnovel/guardrails' },
+            { text: 'Guardrails 实现报告', link: '/agentnovel/guardrails-report' },
+            { text: '去 AI 味提示词工程', link: '/agentnovel/deai' },
+            { text: '实体归一化（角色别名）', link: '/agentnovel/entity' },
           ],
         },
       ],

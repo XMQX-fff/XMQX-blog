@@ -1,16 +1,22 @@
 #!/usr/bin/env python3
-"""把 docs/public/ 下的手写 HTML 文档转成 VitePress 页面。
+"""把独立的手写 HTML 文档转成 VitePress 页面。
 
-为什么转换：这两份文档是独立的手写 HTML，有自己的 header、左侧目录、
+为什么转换：这些文档是独立的手写 HTML，有自己的 header、左侧目录、
 排版和配色，和站点的 VitePress 主题完全不是一套东西；而且它们只是被
 nginx 当静态文件发出去，客户端路由不认识，站内的前进/后退行为也不对。
 
+两种版式，靠正文里有没有 <header class="hero"> 自动识别：
+
+* GraphRAG 版式（html2vp 的老客户）：<header>/<nav class="toc">/<footer>/
+  <script> 外壳 + .layout/<main> 网格。
+* AgentNovel 版式：.topbar + 可收起 <aside class="sidenav"> + hero 头图 +
+  <footer> + 侧栏脚本；hero 里还挂着一份和右侧大纲重复的页内目录。
+
 转换做的事：
-  * 去掉自带的 header / 左侧 nav / footer / TOC 滚动高亮脚本 —— 这些由
-    VitePress 的导航栏、侧边栏、右侧大纲接管；
-  * <pre> 代码块转成围栏代码块，语言标注交给 Shiki（原来那几个是手写 span
-    标的颜色，只能配深色底，跟主题的浅色代码块对不上）；
-  * 其余内容原样保留为内联 HTML，套在 VitePress 的 .vp-doc 排版之下；
+  * 去掉自带的外壳 —— 导航栏、侧边栏、右侧大纲由 VitePress 接管；
+  * 正文里的 .html 互链改写成 VitePress 路由（AgentNovel 版式）；
+  * 其余内容原样保留为内联 HTML，套在 VitePress 的 .vp-doc 排版之下，
+    AgentNovel 版式额外包一层 .an-doc，组件样式按它做作用域隔离；
   * 折叠 HTML 块内部的空行。CommonMark 里 HTML 块遇到空行就结束，
     后面会被当成 markdown 再解析一遍，正文里的 * _ [ 就会被误当成语法。
 
@@ -22,7 +28,7 @@ import re
 import sys
 from pathlib import Path
 
-DROP_BLOCKS = [
+GRAPHRAG_DROP_BLOCKS = [
     (re.compile(r"<header\b.*?</header>", re.S | re.I), "header"),
     (re.compile(r"<nav\b[^>]*class=\"toc\"[^>]*>.*?</nav>", re.S | re.I), "nav.toc"),
     (re.compile(r"<nav\b[^>]*id=\"toc\"[^>]*>.*?</nav>", re.S | re.I), "nav.toc(id)"),
@@ -30,10 +36,37 @@ DROP_BLOCKS = [
     (re.compile(r"<script\b.*?</script>", re.S | re.I), "script"),
 ]
 
+AGENTNOVEL_DROP_BLOCKS = [
+    # topbar 是两层嵌套的 div（.topbar > .inner），要连着收掉两个闭合标签
+    (re.compile(r'<div\b[^>]*class="topbar"[^>]*>.*?</div>\s*</div>', re.S | re.I), "topbar"),
+    (re.compile(r'<div\b[^>]*class="sb-mask"[^>]*>.*?</div>', re.S | re.I), "sb-mask"),
+    (re.compile(r'<aside\b[^>]*class="sidenav"[^>]*>.*?</aside>', re.S | re.I), "sidenav"),
+    (re.compile(r"<nav\b[^>]*>.*?</nav>", re.S | re.I), "nav"),
+    # hero 里的 .toc 和右侧「本页目录」是同一份内容，去掉
+    (re.compile(r'<div\b[^>]*class="toc"[^>]*>.*?</div>', re.S | re.I), "hero toc"),
+    (re.compile(r"<footer\b.*?</footer>", re.S | re.I), "footer"),
+    (re.compile(r"<script\b.*?</script>", re.S | re.I), "script"),
+]
 
-def strip_chrome(body: str) -> str:
-    """去掉自带的外壳，只留下正文。"""
-    for rx, _name in DROP_BLOCKS:
+# AgentNovel 八篇文档在博客里的落点：正文互链按这张表改写成站点路由
+AGENTNOVEL_ROUTES = {
+    "index.html": "/agentnovel/",
+    "graph.html": "/agentnovel/graph",
+    "rag.html": "/agentnovel/rag",
+    "guardrails.html": "/agentnovel/guardrails",
+    "guardrails-report.html": "/agentnovel/guardrails-report",
+    "hitl.html": "/agentnovel/hitl",
+    "deai.html": "/agentnovel/deai",
+    "entity.html": "/agentnovel/entity",
+}
+
+HERO_RX = re.compile(r'<header\b[^>]*class="[^"]*\bhero\b', re.I)
+HREF_RX = re.compile(r'href="([\w-]+\.html)"', re.I)
+
+
+def strip_graphrag_chrome(body: str) -> str:
+    """去掉 GraphRAG 版式的外壳，只留下正文。"""
+    for rx, _name in GRAPHRAG_DROP_BLOCKS:
         body = rx.sub("", body)
 
     # <div class="layout"> 是 sidebar + main 的网格容器，去掉外壳留 main
@@ -43,6 +76,23 @@ def strip_chrome(body: str) -> str:
     body = re.sub(r"<main\b[^>]*>\s*", "", body, flags=re.I)
     body = re.sub(r"\s*</main>", "", body, flags=re.I)
     return body.strip()
+
+
+def strip_agentnovel_chrome(body: str) -> str:
+    """去掉 AgentNovel 版式的外壳；hero 头图保留。"""
+    for rx, _name in AGENTNOVEL_DROP_BLOCKS:
+        body = rx.sub("", body)
+    return body.strip()
+
+
+def rewrite_agentnovel_links(body: str) -> str:
+    """正文里指向其它文档的 .html 链接改成站点路由，否则这些链接会 404。"""
+
+    def repl(m: re.Match) -> str:
+        route = AGENTNOVEL_ROUTES.get(m.group(1).lower())
+        return f'href="{route}"' if route else m.group(0)
+
+    return HREF_RX.sub(repl, body)
 
 
 HEADING_RX = re.compile(r"<(h[1-4])([^>]*)>(.*?)</\1>", re.S | re.I)
@@ -147,9 +197,10 @@ def build(title: str, desc: str, lead: str, body: str) -> str:
         "outline: [2, 3]",
         "---",
         "",
-        f"# {title}",
-        "",
     ]
+    # AgentNovel 的 hero 自带 <h1>，再补一个 markdown 标题会渲染出两个 h1
+    if not re.search(r"<h1[\s>]", body, re.I):
+        fm += [f"# {title}", ""]
     if lead:
         fm += [lead.strip(), ""]
     return "\n".join(fm) + body.strip() + "\n"
@@ -165,10 +216,18 @@ def main() -> int:
     m = re.search(r"<body[^>]*>(.*)</body>", raw, re.S | re.I)
     body = m.group(1) if m else raw
 
-    body = strip_chrome(body)
+    agentnovel = bool(HERO_RX.search(body))
+    if agentnovel:
+        body = strip_agentnovel_chrome(body)
+        body = rewrite_agentnovel_links(body)
+    else:
+        body = strip_graphrag_chrome(body)
     body = escape_quotes_in_attrs(body)
     body = inject_heading_ids(body)
     body = collapse_blank_lines(body)
+    if agentnovel:
+        # 组件样式统一挂在 .vp-doc .an-doc 之下，避免和别的栏目互相污染
+        body = f'<div class="an-doc">\n{body}\n</div>'
 
     dst.write_text(build(title, desc, lead, body), encoding="utf-8")
     print(f"写入 {dst}  ({len(dst.read_text(encoding='utf-8'))} 字节)")
