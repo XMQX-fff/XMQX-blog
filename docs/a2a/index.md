@@ -1,3 +1,7 @@
+---
+description: A2A 协议学习笔记：以 Agent2Agent 规范 v1.0.0 为基准，串起协议动机、核心模型、标准接口、通信模型、成熟系统架构、全流程时序与生产落地，含最小 Demo 与 RAG 对接实战，共十五篇。
+---
+
 # A2A 协议学习笔记
 
 > A2A（Agent2Agent）是 Google 于 2025 年 4 月开源、随后交由 Linux Foundation 托管的

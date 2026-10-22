@@ -35,3 +35,20 @@ python3 deploy/check-doc-html.py docs     # 内联 HTML 的属性名合法性检
 
 注意：生产 nginx 直接以 `docs/.vitepress/dist` 为站点根目录；构建后需跑
 `./deploy/install.sh` 重算 CSP 内联脚本哈希，否则页面脚本会被拦截。细节见 `README.md`。
+
+## SEO（改动页面时别破坏）
+
+每页的搜索结果摘要来自 frontmatter 的 `description`；没写的由
+`deploy/seo.ts` 的 `deriveDescription` 从正文第一段自动抽。新增页面时：
+
+- 想要摘要更准，就在该页 frontmatter 写 `description`（自动抽取会让位给它）；
+- 别在正文第一段放「上一篇讲……」这类只在栏内有意义的开头，会被抽取逻辑跳过；
+- 描述里不能出现半角引号和尖括号。VitePress 把 description 直接拼进
+  `<meta content="...">`，没有做 HTML 转义，一个引号就能把标签弄断。
+
+canonical、Open Graph、Twitter 卡片、JSON-LD 由 `config.mts` 的
+`transformHead` 统一生成，域名硬编码在 `deploy/seo.ts` 的 `SITE_URL`，
+换域名要一起改。`docs/public/robots.txt` 里也写着 sitemap 地址。
+
+JSON-LD 是数据块，CSP 的 `script-src` 不管它，`deploy/gen-csp.py` 因此跳过
+`type` 不是 JavaScript MIME 类型的 `<script>`。新增别的数据块脚本时同理。

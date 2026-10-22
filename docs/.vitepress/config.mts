@@ -1,12 +1,63 @@
+import fs from 'node:fs'
+import path from 'node:path'
 import { defineConfig } from 'vitepress'
 import { withMermaid } from 'vitepress-plugin-mermaid'
 import { htmlHeadingsPlugin } from '../../deploy/markdown-it-html-headings'
+import { buildSeoHead, deriveDescription, OG_IMAGE, SITE_NAME, SITE_URL } from '../../deploy/seo'
 
 export default withMermaid(defineConfig({
   lang: 'zh-CN',
   title: 'XMQX 的博客',
   description: '学习笔记与资料整理：GraphRAG、LangGraph、LangChain、编程、更多资料持续沉淀',
   lastUpdated: true,
+
+  // URL 去掉 .html 后缀。产物文件名不变（仍是 xxx.html），由 nginx 的
+  // `try_files $uri $uri/ $uri.html` 兜住无扩展名的请求。
+  // 站内链接、canonical、sitemap 三者用同一套 URL，避免搜索引擎把
+  // /a.html 和 /a 当成两个页面。
+  cleanUrls: true,
+
+  // 生成 sitemap.xml。配合 cleanUrls，里面的地址就是无后缀的正式地址。
+  sitemap: {
+    hostname: SITE_URL,
+  },
+
+  head: [
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
+    ['meta', { name: 'theme-color', content: '#3c4257' }],
+    ['meta', { property: 'og:site_name', content: SITE_NAME }],
+    ['meta', { property: 'og:locale', content: 'zh_CN' }],
+    ['meta', { property: 'og:image', content: OG_IMAGE }],
+  ],
+
+  // 每页补齐 SEO head：canonical、Open Graph、Twitter 卡片、JSON-LD 结构化数据。
+  transformHead(context) {
+    // 404 页没有对应的真实地址，给它 canonical 只会指向一个打不开的页面
+    if (context.pageData?.isNotFound) return
+    return buildSeoHead({
+      page: context.page,
+      title: context.title,
+      headline: context.pageData?.title || context.title,
+      description: context.description,
+      lastUpdated: context.pageData?.lastUpdated,
+    })
+  },
+
+  // 页面描述。frontmatter 里手写了 description 的页面照用；
+  // 没写的从正文第一段抽一句，保证每页的描述都跟本页内容对得上。
+  transformPageData(pageData, ctx) {
+    const fm = pageData.frontmatter?.description
+    if (typeof fm === 'string' && fm.trim()) return
+    const rel = pageData.filePath || pageData.relativePath
+    if (!rel) return
+    try {
+      const file = path.resolve(ctx.siteConfig.srcDir, rel)
+      const desc = deriveDescription(fs.readFileSync(file, 'utf-8'))
+      if (desc) return { description: desc }
+    } catch {
+      // 读不到源文件就退回全站默认描述
+    }
+  },
 
   markdown: {
     config(md) {

@@ -1,5 +1,6 @@
 ---
 layout: home
+description: XMQX 的博客：中文技术学习笔记与资料整理，覆盖 GraphRAG、LangGraph、LangChain、A2A 协议与 AI 小说创作系统设计，每篇都带可运行示例、预期输出与源码级解析。
 
 hero:
   name: XMQX 的博客

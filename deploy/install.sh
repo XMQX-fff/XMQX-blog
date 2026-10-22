@@ -231,7 +231,11 @@ check 200 "首页"                    "/"
 check 200 "栏目页"                  "/graphrag/"
 check 200 "教程页"                  "/graphrag/nano-graphrag-tutorial.html"
 check 200 "源码解析页"              "/graphrag/nano-graphrag-source-analysis.html"
+check 200 "无后缀地址"              "/graphrag/nano-graphrag-tutorial"
 check 200 "静态资源"                "/vp-icons.css"
+check 200 "robots.txt"              "/robots.txt"
+check 200 "sitemap.xml"             "/sitemap.xml"
+check 200 "社交封面"                "/og.png"
 check 404 "不存在的路径"            "/nope-not-exist"
 check 403 "目录列举被拒"            "/assets/"
 check 403 "隐藏文件被拒"            "/.git/config"
@@ -300,13 +304,23 @@ else
 	fail=1
 fi
 
-# www 也要能到，且规范到主域
-code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
-	--resolve "${SITE_DOMAIN_ALT}:${LISTEN_PORT}:127.0.0.1" "https://${SITE_DOMAIN_ALT}/")"
-if [[ "$code" == "200" ]]; then
-	printf '  \033[32mok\033[0m   %-34s %s\n' "www 域名可访问" "$code"
+# www 必须 301 到主域名。同一份内容给两个地址，搜索引擎会把它们当成
+# 重复页面，权重分散。canonical 也只写主域名，两边要对上。
+redir="$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' --max-time 10 \
+	--resolve "${SITE_DOMAIN_ALT}:${LISTEN_PORT}:127.0.0.1" "https://${SITE_DOMAIN_ALT}/graphrag/" || echo "000 ")"
+if [[ "$redir" == 301* && "$redir" == *"https://${SITE_DOMAIN}/graphrag/"* ]]; then
+	printf '  \033[32mok\033[0m   %-34s %s\n' "www 跳主域名" "$redir"
 else
-	printf '  \033[31mFAIL\033[0m %-34s %s\n' "www 域名" "$code"
+	printf '  \033[31mFAIL\033[0m   %-34s %s (期望 301 到 https://%s)\n' "www 跳主域名" "$redir" "$SITE_DOMAIN"
+	fail=1
+fi
+
+# canonical / og:url 必须指向主域名，且与请求的地址对得上
+canon="$("${CURL[@]}" "$BASE/graphrag/" | grep -o '<link rel="canonical" href="[^"]*"' | head -1)"
+if [[ "$canon" == *"$SITE_DOMAIN"* && "$canon" != *"$SITE_DOMAIN_ALT"* ]]; then
+	printf '  \033[32mok\033[0m   %-34s %s\n' "canonical 指向主域名" "$canon"
+else
+	printf '  \033[31mFAIL\033[0m   %-34s %s (canonical 应为 https://%s/...)\n' "canonical 指向主域名" "$canon" "$SITE_DOMAIN"
 	fail=1
 fi
 
@@ -376,7 +390,7 @@ fi
 
 log "部署完成"
 printf '    公网:      https://%s/\n' "$SITE_DOMAIN"
-printf '    www:       https://%s/  （同一张证书）\n' "$SITE_DOMAIN_ALT"
+printf '    www:       https://%s/  （同一张证书，301 到主域名）\n' "$SITE_DOMAIN_ALT"
 printf '    本机测试:  curl -H "Host: %s" http://127.0.0.1/\n' "$SITE_DOMAIN"
 if ! ss -ltn 2>/dev/null | grep -q ":${LISTEN_PORT}[[:space:]]"; then
 	warn "本机 ${LISTEN_PORT} 没在监听，请检查 nginx"

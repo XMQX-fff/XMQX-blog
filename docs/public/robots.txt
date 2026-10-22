@@ -1,0 +1,11 @@
+# XMQX 的博客：允许所有搜索引擎抓取全部页面。
+#
+# 站点是纯静态文档，没有登录态、没有需要隐藏的内容，没有额外的 Disallow 规则。
+# 留这份文件主要是为了给搜索引擎一个明确的抓取入口，并指向 sitemap。
+#
+# 改这份文件后要重新构建部署，nginx 的站点根目录就是 docs/.vitepress/dist。
+
+User-agent: *
+Allow: /
+
+Sitemap: https://xmqx.online/sitemap.xml

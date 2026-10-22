@@ -1,3 +1,7 @@
+---
+description: LangGraph 学习笔记：智能体工作流编排实战，涵盖 State/Node/Edge 图 API、路由与多智能体架构、Checkpointer 持久化与记忆、interrupt 人在回路与流式输出，共六篇串成一条主线。
+---
+
 # LangGraph 学习笔记
 
 ## 栏目内容

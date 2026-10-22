@@ -19,9 +19,48 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 
 SCRIPT_RE = re.compile(rb"<script([^>]*)>(.*?)</script>", re.S | re.I)
 HAS_SRC_RE = re.compile(rb"""\bsrc\s*=""", re.I)
+TYPE_RE = re.compile(rb"""\btype\s*=\s*["']?([A-Za-z0-9._+-]+)""", re.I)
+JS_TYPES = {
+    b"module",
+    b"text/javascript",
+    b"application/javascript",
+    b"text/ecmascript",
+    b"application/ecmascript",
+    b"text/jscript",
+    b"text/livescript",
+    b"text/x-javascript",
+    b"text/x-ecmascript",
+}
+# 标签上的外链地址：src / href
+URL_ATTR_RE = re.compile(rb"""(?:src|href)\s*=\s*["']([^"']+)["']""", re.I)
+TAG_RE = re.compile(rb"""<(?:script|link|img|iframe)\b[^>]*>""", re.I)
+
+
+def is_executable(attrs: bytes) -> bool:
+    """这段 <script> 会不会被浏览器执行（因而需要 CSP 哈希）。"""
+    m = TYPE_RE.search(attrs)
+    if not m:
+        return True
+    return m.group(1).lower() in JS_TYPES
+
+
+def host_of(url: str) -> str:
+    if url.startswith("//"):
+        url = "https:" + url
+    return (urlparse(url).hostname or "").lower()
+
+
+def is_offsite(url: str, site_host: str) -> bool:
+    """地址是不是指向站外。站内绝对地址（canonical、og:image）放行。"""
+    if not url:
+        return False
+    if url.startswith(("http://", "https://", "//")):
+        return host_of(url) != site_host
+    return False
 
 
 def live_csp(base: str) -> str:
@@ -61,16 +100,21 @@ def main() -> int:
             failures.append(f"script-src 里出现了不该有的 {bad}")
 
     needed: set[str] = set()
+    site_host = host_of(base)
     for html in sorted(dist.rglob("*.html")):
         blob = html.read_bytes()
         for attrs, body in SCRIPT_RE.findall(blob):
             if HAS_SRC_RE.search(attrs) or not body.strip():
                 continue
+            if not is_executable(attrs):
+                continue
             raw = base64.b64encode(hashlib.sha256(body).digest()).decode()
             needed.add("'sha256-" + raw + "'")
-        for tag in re.findall(rb"""<(?:script|link|img|iframe)\b[^>]*>""", blob, re.I):
-            if re.search(rb"""(?:src|href)\s*=\s*["'](?:https?:)?//""", tag, re.I):
-                failures.append(f"{html}: 引用了站外资源，CSP script-src 'self' 会拦下来：{tag[:120]!r}")
+        for tag in TAG_RE.findall(blob):
+            for url in URL_ATTR_RE.findall(tag):
+                url = url.decode("utf-8", "replace")
+                if is_offsite(url, site_host):
+                    failures.append(f"{html}: 引用了站外资源，CSP script-src 'self' 会拦下来：{tag[:120]!r}")
 
     for h in sorted(needed - allowed):
         failures.append(f"CSP 缺少内联脚本哈希 {h}，该脚本会被浏览器执行拦截")

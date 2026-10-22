@@ -10,17 +10,21 @@ map $uri $xmqx_blog_cache_control {
 	# 只有带内容哈希的产物才长期强缓存：文件名变了内容必然变了，immutable 安全。
 	~^/assets/.+\.(?:js|mjs|css|woff2?|png|jpe?g|svg|gif|webp|json)$ "public, max-age=31536000, immutable";
 
+	# 社交封面和站点图标：内容很少变，给一周强缓存，省得每次分享都重下一遍。
+	~^/(?:og\.png|favicon\.svg)$ "public, max-age=604800";
+
 # 其余一律 no-store（连存都不许存），包含所有 HTML 页面和 hashmap.json。
-	#
-	# 这里踩过两次坑，所以收紧到 no-store 而不是 no-cache：
-	#   1. 原先用 default 兜底 max-age=600，每个 HTML 页面被浏览器缓存 10 分钟。
-	#      页面里引用的是带哈希的样式表/脚本，缓存住旧 HTML 就等于把旧资源钉死。
-	#   2. 改成 no-cache 后仍可能命中已经存下来的旧副本 —— 而旧副本引用的是
-	#      早就被删除的 chunk 哈希，于是站内点击白屏、刷新才正常。
-	# no-store 从根上断掉这条路径。代价只是每次访问重新下几 KB 的 HTML，
-	# 真正占流量的 JS/CSS/字体仍然是 immutable 一年。
+#
+# 这里踩过两次坑，所以收紧到 no-store 而不是 no-cache：
+#   1. 原先用 default 兜底 max-age=600，每个 HTML 页面被浏览器缓存 10 分钟。
+#      页面里引用的是带哈希的样式表/脚本，缓存住旧 HTML 就等于把旧资源钉死。
+#   2. 改成 no-cache 后仍可能命中已经存下来的旧副本 —— 而旧副本引用的是
+#      早就被删除的 chunk 哈希，于是站内点击白屏、刷新才正常。
+# no-store 从根上断掉这条路径。代价只是每次访问重新下几 KB 的 HTML，
+# 真正占流量的 JS/CSS/字体仍然是 immutable 一年。
 	default                                    "no-store";
 }
+
 
 server {
 	listen 80;
@@ -51,6 +55,12 @@ server {
 	listen [::]:443 ssl;
 	http2 on;
 	server_name xmqx.online www.xmqx.online;
+
+	# www 与主域名指向同一份内容。统一 301 到主域名，搜索引擎只认一个地址，
+	# 免得同一页被算成两份、权重分散。canonical 也只写主域名。
+	if ($host = "www.xmqx.online") {
+		return 301 https://xmqx.online$request_uri;
+	}
 
 	ssl_certificate     /etc/letsencrypt/live/xmqx.online/fullchain.pem;
 	ssl_certificate_key /etc/letsencrypt/live/xmqx.online/privkey.pem;

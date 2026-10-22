@@ -60,10 +60,85 @@ npm run preview    # 预览构建结果
 1. 在 `docs/` 下新建栏目目录（如 `docs/golang/`），添加 `index.md` 作为栏目首页；
 2. 内容页一律写成 `.md` 放在栏目目录下（长文档也可整篇用 HTML 写进 `.md`，
    由 `deploy/markdown-it-html-headings` 插件补目录；早期"整页 HTML 放
-   `docs/public/`"的方案已废弃，`docs/public/` 不存在了）；
+   `docs/public/`"的方案已废弃）；
 3. 在 `docs/.vitepress/config.mts` 中：
    - `nav` 添加顶栏入口；
    - `sidebar` 添加对应路径前缀的侧边栏分组（父目录 + 子页面）。
+
+`docs/public/` 现在只放站点级的静态资源：`robots.txt`、`og.png`（社交分享封面）、
+`favicon.svg`。内容页不要往这里放。
+
+## SEO / 搜索引擎收录
+
+站点是纯静态的，收录这件事分两半：**站内**要做的是让搜索引擎能抓到、能理解、
+能把每页当成不同页面；**站外**要做的是把站点登记到各家的站长平台并提交 sitemap。
+
+### 站内已经做好的
+
+| 项 | 位置 | 说明 |
+| --- | --- | --- |
+| 可抓取 | `X-Robots-Tag: index, follow`（nginx） | 所有页面都允许收录 |
+| 抓取入口 | `docs/public/robots.txt` | `User-agent: *` + `Allow: /`，并指向 sitemap |
+| 站点地图 | `config.mts` 的 `sitemap.hostname` | 构建时自动生成 `sitemap.xml`，带 `lastmod` |
+| 无后缀 URL | `config.mts` 的 `cleanUrls: true` | 站内链接、canonical、sitemap 同一套地址 |
+| 唯一地址 | nginx 的 `www` → 主域名 301 | 同一份内容只留一个地址，权重不分散 |
+| 每页描述 | `config.mts` 的 `transformPageData` | frontmatter 写了 `description` 的照用；没写的从正文第一段自动抽 |
+| 社交卡片 | `config.mts` 的 `transformHead` | `og:*` / `twitter:*`，封面是 `docs/public/og.png` |
+| 结构化数据 | 同上 | 每页一段 `application/ld+json`：`BlogPosting` + `BreadcrumbList` |
+| canonical | 同上 | 每页 `<link rel="canonical">`，一律指向主域名 |
+
+自动抽描述的逻辑在 `deploy/seo.ts`（`deriveDescription`）：取正文第一段，
+去掉「上一篇讲……」这类只在栏内有意义的开头，中文换行不塞空格。
+
+想让某一页的搜索结果摘要更准，就在该页 frontmatter 里写 `description`，
+自动抽取会让位给它。
+
+> JSON-LD 是数据块，不是可执行脚本，CSP 的 `script-src` 不管它。
+> `deploy/gen-csp.py` 因此跳过 `type` 不是 JavaScript MIME 类型的 `<script>`，
+> 否则每页一段的 JSON-LD 会把 CSP 头撑成几十条哈希。
+
+### 站外：提交给搜索引擎
+
+这部分要拿各家的账号手动做一次，做完就不用管了（sitemap 会自动更新）。
+
+**Google Search Console**（<https://search.google.com/search-console>）
+
+1. 添加网址类型选「域名」，填 `xmqx.online`；
+2. 选 DNS 验证，把它给的 TXT 记录加到域名的 DNS 里（或者用「网址前缀」+ 放一个
+   `google*.html` 验证文件到 `docs/public/`）；
+3. 验证通过后进「站点地图」，填 `sitemap.xml`，提交；
+4. 「网址检查」里对 `https://xmqx.online/` 请求编入索引；
+5. 站点连上 Google 账号后，核心网页指标（Core Web Vitals）会在「网页体验」里出现。
+
+**Bing Webmaster Tools**（<https://www.bing.com/webmasters>）
+
+1. 添加站点填 `xmqx.online`；
+2. 验证方式选「Import from GSC」（最省事）或 DNS；
+3. 站点地图页面填 `https://xmqx.online/sitemap.xml`；
+4. 顺带打开「URL 检查」提交几个重点页面。
+
+**百度搜索资源平台**（<https://ziyuan.baidu.com>）
+
+1. 添加并验证站点（推荐用 DNS TXT）；
+2. 「普通收录」→ 手动提交 `https://xmqx.online/sitemap.xml`；
+3. 「链接提交」里填站点首页；
+4. 百度对 JS 渲染的页面抓取相对弱，本站所有正文都在首屏 HTML 里（VitePress 是
+   SSG），不用依赖 JS，这一条影响不大。
+
+**其它**：DuckDuckGo 用 Bing 的索引；Yandex / Brave 用各自的站长平台提交同一份
+sitemap 即可。
+
+### 提交完怎么确认收录
+
+```bash
+# 看站点被收录了多少页（site: 查询只反映索引规模，不精确）
+curl -s "https://www.google.com/search?q=site:xmqx.online" -A "Mozilla/5.0" | grep -o 'xmqx.online/[^&]*' | sort -u | head
+
+# 直接看搜索引擎有没有抓到 sitemap
+curl -s https://xmqx.online/sitemap.xml | grep -o "<loc>" | wc -l
+```
+
+刚提交的一两天内看不到结果是正常的，收录通常要几天到几周。
 
 ## 部署
 
@@ -85,7 +160,8 @@ npm run preview    # 预览构建结果
    以及 `/etc/nginx/conf.d/xmqx-blog-limits.conf`（限流共享内存区）；
 5. `nginx -t` 校验（**失败会自动回滚到上一版配置**，不会把线上 nginx 搞挂）；
 6. `systemctl reload nginx`；
-7. 冒烟测试：状态码、穿越/隐藏文件/非 GET 方法、安全响应头、CSP 哈希覆盖。
+7. 冒烟测试：状态码、穿越/隐藏文件/非 GET 方法、安全响应头、CSP 哈希覆盖，
+   以及 robots.txt / sitemap.xml / canonical / www 跳转这几项 SEO 相关检查。
 
 配置本身在 `deploy/nginx-xmqx-blog.conf.template`，装好后**不要手改**
 `/etc/nginx/sites-available/xmqx-blog`，改模板然后重跑 `install.sh`。
@@ -95,7 +171,7 @@ npm run preview    # 预览构建结果
 | 环境 | 地址 |
 | --- | --- |
 | 公网 | **https://xmqx.online** |
-| www | https://www.xmqx.online （同一张证书） |
+| www | https://www.xmqx.online （同一张证书，301 到主域名） |
 | 本机 | `curl -H "Host: xmqx.online" http://127.0.0.1/` |
 
 站点只在 80 / 443 上按域名提供。80 一律 301 到 HTTPS（`/.well-known/acme-challenge/`
@@ -178,7 +254,8 @@ journalctl -u xmqx-blog-deploy -f         # 实时日志
 - **其余响应头**：`X-Content-Type-Options`、`X-Frame-Options: DENY`、
   `Referrer-Policy`、`Permissions-Policy`、`Cross-Origin-*-Policy`、
   `COOP`/`CORP`，以及 `server_tokens off`（`Server: nginx`，不泄露版本）。
-- **缓存**：`/assets/` 下带内容哈希的文件 `immutable` 一年，入口页和 404 不缓存。
+- **缓存**：`/assets/` 下带内容哈希的文件 `immutable` 一年，入口页和 404 不缓存；
+  `og.png` / `favicon.svg` 缓存一周。
 
 ### 已知限制 / 后续
 
