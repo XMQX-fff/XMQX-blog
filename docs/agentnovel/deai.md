@@ -44,7 +44,7 @@ prompt 里塞 40 条规则，模型只会照做其中最容易的 5 条（删词
 效果不可复现、不可回归、不可解释。</li>
 </ul>
 <p>
-所以本设计不是「一条去 AI 味 prompt」，而是<strong>三道防线 + 一份可被程序消费的规则库</strong>。</p>
+所以本设计做成了<strong>三道防线 + 一份可被程序消费的规则库</strong>。</p>
 <hr />
 <h2 id="2-总体结构">2. 总体结构</h2><pre><code>                    ┌─────────────────────────────────────────┐
    ①  prompt 引导   │ app/core/deai_prompts.deai_core_block    │  → 写作/润色/修订/段落重写
@@ -70,7 +70,7 @@ prompt 里塞 40 条规则，模型只会照做其中最容易的 5 条（删词
    规则库（数据）：app/core/deai_rules.RULES —— 五层 72 条，被上面三处同时消费
 </code></pre>
 <p>
-防线顺序不是随意的：<strong>引导降低发生概率 → 兜底兜住必然出错的部分 → 验收量化残余，
+防线顺序有讲究：<strong>引导降低发生概率 → 兜底兜住必然出错的部分 → 验收量化残余，
 并把残余喂回审核</strong>。只有第 ① 道是「模型发挥」，第 ②③ 道完全确定、可进 CI。</p>
 <hr />
 <h2 id="3-规则库deai_rulespy">3. 规则库：<code>deai_rules.py</code></h2><h3 id="31-五层结构">3.1 五层结构</h3><p>
@@ -167,16 +167,19 @@ F1–F8</td>
 系统机械播报、章节末预告与总结、对白只剩信息不剩人、排比成瘾、金句化、感官锚点缺失。
 这一层是本项目自己的增量。</li>
 <li>
-<strong>保留 V17（该放回来的人类语域）</strong>：去 AI 味不只是做减法。对齐训练系统性压低了
+<strong>保留 V17（该放回来的人类语域）</strong>：去 AI 味需要双向操作，删词之外还要补回人类语域。对齐训练系统性压低了
 一批人类日常表达，删光黑名单词后中文仍然读起来「太干净、太书面、太均匀」——
 那是另一种指纹。</li>
 </ul>
 <h3 id="32-阈值语义per_kilo">3.2 阈值语义：<code>per_kilo</code></h3><p>
 每条规则有一个 <code>per_kilo</code>：<strong>每千字的免费次数</strong>。</p>
-<pre><code class="language-python">allowed = per_kilo * len(text) / 1000
+<pre><code class="language-python">allowed = max(per_kilo * len(text) / 1000, 1.0)   # 免费额度下限 1 次
 命中数 &gt; allowed  →  算问题
 excess = 命中数 - allowed  →  参与扣分
 </code></pre>
+<p>
+那个 <code>max(..., 1.0)</code> 是有意加的：<strong>保证「单次出现且读感自然的不算问题」对任意长度的文本都成立</strong>。
+否则 30 字段落里出现一次「总的来说」也会被判成成簇（额度只有 0.03）。</p>
 <p>
 <code>per_kilo = 0.0</code> 表示「出现即问题」（泄漏、加粗、emoji、鸡汤收尾）。</p>
 <p>
@@ -186,7 +189,7 @@ excess = 命中数 - allowed  →  参与扣分
 <h3 id="33-误判白名单">3.3 误判白名单</h3><p>
 <code>quote_aware=True</code> 的规则会跳过引号内的内容（<code>mask_quotes</code>）。原因：
 「她说『本质上这是个闭环』」里，AI 腔是<strong>人物在装腔</strong>，是人类写法；
-同样的词出现在叙述层才是痕迹。这类规则共 6 条（S13/S15/V1/V5/V8/F2/F6）。</p>
+同样的词出现在叙述层才是痕迹。这类规则共 8 条（S13/S15/V1/V5/V6/V8/F2/F6）。</p>
 <hr />
 <h2 id="4-prompt-组装deai_promptspy">4. prompt 组装：<code>deai_prompts.py</code></h2><h3 id="41-为什么必须分块">4.1 为什么必须分块</h3><p>
 上游 SKILL 有 1100+ 行、约 40KB。全量注入有两个后果：</p>
@@ -247,9 +250,9 @@ excess = 命中数 - allowed  →  参与扣分
 <td>
 <code>deai_rewrite_block</code></td>
 <td>
-作者直接要求「去 AI 味」</td>
+作者直接要求「去 AI 味」的入口（<b>待接</b>）</td>
 <td>
-两阶段精修指令</td>
+两阶段精修指令 —— 已实现，但<b>当前没有任何调用点</b>，只在 <code>deai_prompts.py</code> 与其测试里出现</td>
 </tr>
 <tr>
 <td>
@@ -280,7 +283,7 @@ excess = 命中数 - allowed  →  参与扣分
 上游实测「改了也不影响识别率」的那部分。</p>
 <h3 id="43-题材定向">4.3 题材定向</h3><p>
 不同体裁的 AI 味长在不同地方。<code>FOCUS_RULES</code> 从 <code>genre</code> / <code>theme</code> / <code>style</code> 扫关键词，
-命中就给一条定向提示。例如：</p>
+命中就给一条定向提示（可同时命中多条，按命中顺序去重）。例如：</p>
 <ul>
 <li>
 悬疑/惊悚 → 「线索要让读者自己连，不要在段尾替读者总结『这说明凶手是 X』」</li>
@@ -325,7 +328,7 @@ SystemMessage 末尾</td>
 <td>
 目标清单第 5 条</td>
 <td>
-追加而非插入，保持 1–4 条的语义</td>
+追加到末尾，不做插入，保持 1–4 条的语义</td>
 </tr>
 <tr>
 <td>
@@ -347,7 +350,7 @@ HumanMessage 末尾</td>
 </table></div>
 <p>
 核心块一律经 <code>nodes._deai_block(state)</code> 生成，<strong>不并入 <code>_project_context</code></strong>。
-<code>_project_context</code> 那一行是「文风要求」，而本模块是<strong>约束</strong>不是新文风；
+<code>_project_context</code> 那一行是「文风要求」，而本模块只做<strong>约束</strong>，不引入新文风；
 混进去会被模型当成「作者要求更文学」，正好是反效果。</p>
 <hr />
 <h2 id="5-确定性检测deai_lintlint_text">5. 确定性检测：<code>deai_lint.lint_text</code></h2><h3 id="51-词法层">5.1 词法层</h3><p>
@@ -382,7 +385,7 @@ D5 碎段</td>
 <td>
 短段（≤28 字）占比 + 短段长度离散度</td>
 <td>
-占比 ≥ 0.45 <strong>且</strong> 短段 CV <code>&lt; 0.35</code></td>
+段数 ≥ 10 <strong>且</strong> 占比 ≥ 0.45 <strong>且</strong> 短段 ≥ 5 <strong>且</strong> 短段 CV <code>&lt; 0.35</code></td>
 </tr>
 <tr>
 <td>
@@ -404,7 +407,7 @@ D1 大纲测试</td>
 <td>
 D3 中段塌陷</td>
 <td>
-(a) 最长段落在全文首/尾 25%；(b) 中段长度 CV &lt; 全章 CV × 0.35</td>
+(a) 最长段落在全文首/尾 <strong>15%</strong>，且它 ≥ 平均段长 × 1.3；(b) 全章 CV ≥ 0.10 <strong>且</strong> 中段长度 CV &lt; 全章 CV × 0.35</td>
 <td>
 任一成立</td>
 </tr>
@@ -412,7 +415,7 @@ D3 中段塌陷</td>
 <td>
 N6 结尾抒情</td>
 <td>
-末尾 15% 出现「想通了/释然/和解」</td>
+末尾 <code>max(80 字, 1/7 正文)</code> 的窗口内出现「想通了/释然/和解」</td>
 <td>
 命中即算</td>
 </tr>
@@ -420,7 +423,7 @@ N6 结尾抒情</td>
 <td>
 N8 建立镜头</td>
 <td>
-前 140 字同时有时间与地点标记</td>
+前 140 字里时间标记与地点标记<strong>相隔 ≤ 8 字</strong>（并排陈述才算建立镜头；相距更远是叙述）</td>
 <td>
 命中即算</td>
 </tr>
@@ -475,17 +478,17 @@ F7 感官锚点</td>
 <strong>又碎又整齐</strong> —— 观点句被机器切成同样大小的薄片。</li>
 <li>
 <strong>D3 的信号 (b) 需要 <code>whole_cv ≥ 0.10</code></strong>。全章本来就等厚时 <code>mid_cv ≈ 0</code> 是必然结果，
-那不是「中段塌陷」而是 D4 的锅，两条规则不该重复扣同一件事的分。</li>
+那种情况该归 D4，两条规则不该重复扣同一件事的分。</li>
 <li>
 <strong>F5 不能用正则</strong>。<code>A，B，C。</code> 在正常中文里俯拾皆是（&quot;灯没点，只有后厨那口锅
 还冒着白气，噗噗地响&quot;），正则版 F5 一定误报。真正要量的是<strong>三个分句的长度比</strong>。</li>
 </ul>
-<h3 id="53-评分">5.3 评分</h3><pre><code>ratio   = 命中数 / max(允许额度, 0.5)
+<h3 id="53-评分">5.3 评分</h3><pre><code>ratio   = 命中数 / max(允许额度, 1.0)
 penalty = 严重度权重 × 2.5 × min(ratio, 6)      # 单条封顶
 score   = clamp(100 - Σ penalty, 0, 100)
 </code></pre>
 <p>
-按<strong>密度倍数</strong>而不是绝对条数算，是因为短文本必须和长文本一样被严格判：
+之所以按<strong>密度倍数</strong>算，是因为短文本必须和长文本一样被严格判：
 125 字的样章出现 3 处「终于明白」是每千字 24 处，按条数算只扣 3 分，按密度算直接封顶。</p>
 <p>
 实测标定：</p>
@@ -503,11 +506,11 @@ score   = clamp(100 - Σ penalty, 0, 100)
 <tbody>
 <tr>
 <td>
-刻意 AI 腔（等厚 + 路标词成簇 + 结尾抒情）</td>
+刻意 AI 腔（等厚 + 路标词成簇 + 结尾抒情，234 字）</td>
 <td>
-23</td>
+66</td>
 <td>
-重度</td>
+轻度<br><small>命中 S15 / N1 / N6 / D1 / F7</small></td>
 </tr>
 <tr>
 <td>
@@ -559,7 +562,7 @@ emoji、标点统一、章节末预告。</li>
 <li>
 <strong>不剥 markdown 小标题</strong>（<code>### 一、旧站</code>）：本项目的章节正文支持分节小标题，
 那是作者主动分节的设备（见 <code>test_chapter_body_clean.py::test_keeps_normal_section_headings</code>），
-不是模型泄漏的痕迹。要剥的是模型爱加的<strong>强调</strong>与竖排条目。</li>
+与模型泄漏无关。要剥的是模型爱加的<strong>强调</strong>与竖排条目。</li>
 <li>
 <strong>不动对白内容</strong>：<code>quote_aware</code> 的修复跑在掩码上。</li>
 <li>
@@ -649,7 +652,7 @@ emoji、标点统一、章节末预告。</li>
 </tr>
 <tr>
 <td>
-<code>POST /paragraph/{i}/rewrite</code></td>
+<code>POST /chapters/{chapter_id}/paragraph/{i}/rewrite</code></td>
 <td>
 <code>routers/chapters.py</code> 单段重写后（跨段结构指标需要看全章）</td>
 </tr>
@@ -666,13 +669,13 @@ DEAI_WARN_SCORE_BELOW=60       # 低于此分打 WARN
 <p>
 <code>DEAI_ENABLED=false</code> 时：prompt 无注入、机械修复与检测都不跑、评分退化为 100
 （所有 <code>deai_*</code> 块返回空串，post-processing 直接返回原值）。
-这是完整的降级路径，不是半开半关 —— 半开半关的状态最难排查。</p>
+这是完整的降级路径，不留半开半关的状态——那种状态最难排查。</p>
 <hr />
 <h2 id="9-已知限制">9. 已知限制</h2><ol>
 <li>
 <strong>结构缺陷必须靠模型改，程序只能算出来</strong>。<code>lint_text</code> 报 D3/D4 时，
-要真修得让 LLM 重写受影响的那一段（<code>deai_rewrite_block</code>）。当前 wiring
-只把线索送到审核，人工决定是否采用。</li>
+要真修得让 LLM 重写受影响的那一段（<code>deai_rewrite_block</code> 已备好，但当前 wiring 还没接上）。
+现在只把线索送到审核，人工决定是否采用。</li>
 <li>
 <strong>F7 感官锚点阈值是单章标定</strong>。短章（&lt; 500 字）的密度波动大，
 可能偏松；长篇连载的单章之间不可比。</li>
@@ -697,7 +700,7 @@ DEAI_WARN_SCORE_BELOW=60       # 低于此分打 WARN
 （「他从X到Y」重复出现），这是单章检测看不到的。</li>
 <li>
 <strong>检测结论回流生成</strong>：把上一章的 <code>lint_text</code> 结果写进下一章的 prompt，
-形成「生成 → 检测 → 定向修正」的闭环，而不是只做单轮修补。</li>
+形成「生成 → 检测 → 定向修正」的闭环，单轮修补是不够的。</li>
 <li>
 <strong>规则库版本化</strong>：规则集改动需要人工评测（同一批样章跑新旧两版对比），
 目前没有回归语料。建议维护一组 10–20 段「已知 AI 腔 / 已知人写」的固定样章，

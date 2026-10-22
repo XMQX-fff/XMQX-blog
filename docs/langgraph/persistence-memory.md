@@ -87,7 +87,7 @@ config = {"configurable": {"thread_id": "1", "checkpoint_id": "0c62ca34-..."}}
 graph.invoke(None, config=config)
 ```
 
-语义为：**自该 checkpoint 之后重新执行**，之前的步骤直接回放而不重算。
+语义为：**自该 checkpoint 之后重新执行**，之前的步骤直接回放，不做重算。
 
 需要留意：`checkpoint_id` **之后**的步骤即使曾经执行过，也会**重新执行**
 （相当于开辟新分支）。由此延伸出"时间旅行"——从任意历史点分叉，探索其他路径。
@@ -153,8 +153,7 @@ def call_model(state, config: RunnableConfig, *, store: BaseStore):
     # 将 info 拼入提示词...
 ```
 
-**语义搜索**：为 store 配置 embedding 后，`search` 支持按自然语言查询检索记忆，
-而非依赖精确匹配：
+**语义搜索**：为 store 配置 embedding 后，`search` 支持按自然语言查询检索记忆，无需精确匹配：
 
 ```python
 from langchain.embeddings import init_embeddings
@@ -301,7 +300,7 @@ def summarize_conversation(state: State):
 
 更进一步的是 **pending writes**：一个超步中并行执行三个节点，
 第三个失败时，LangGraph 会保存前两个**已完成的写入**，
-恢复时**不会重跑它们**。节省的不只是时间，还包括重复调用 LLM 的费用。
+恢复时**不会重跑它们**。省下时间，也省下重复调用 LLM 的费用。
 
 ## 五、检查点器的选型
 

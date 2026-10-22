@@ -12,7 +12,7 @@ outline: [2, 3]
 <p>
 <strong>项目</strong>：NovelCraft AI — 基于 LangGraph 的智能小说创作助手
 <strong>范围</strong>：<code>app/core/rag.py</code> 子查询构造与入库前缀、<code>app/core/state.py</code> 角色模型、前端设定中心
-<strong>状态</strong>：<strong>已实现</strong>（后端 + 前端 + 17 条回归，见 §9）
+<strong>状态</strong>：<strong>已实现</strong>（后端 + 前端 + 22 条回归，见 §9）
 <strong>关联</strong>：<code>docs/html/rag.html</code> §5（前缀富化）、§8（分条召回）、§11（查询全过程）
 <strong>文档日期</strong>：2026-10-08</p>
 </blockquote>
@@ -35,7 +35,7 @@ outline: [2, 3]
 <tbody>
 <tr>
 <td>
-入库前缀 <code>_names_in()</code><br><code>rag.py:1288</code></td>
+入库前缀 <code>_names_in()</code><br><code>rag.py:1443</code></td>
 <td>
 <code>n in text</code> 精确匹配<strong>规范名</strong></td>
 <td>
@@ -43,7 +43,7 @@ outline: [2, 3]
 </tr>
 <tr>
 <td>
-子查询 <code>build_story_queries_with_info()</code><br><code>rag.py:679</code></td>
+子查询 <code>build_story_queries_with_info()</code><br><code>rag.py:735</code></td>
 <td>
 只用 <code>f&quot;{c['name']} {c.get('role','')}&quot;</code></td>
 <td>
@@ -51,7 +51,7 @@ outline: [2, 3]
 </tr>
 <tr>
 <td>
-出场判定<br><code>rag.py:675-676</code></td>
+出场判定<br><code>rag.py:765-766</code></td>
 <td>
 <code>str(c[&quot;name&quot;]) in stage_text</code></td>
 <td>
@@ -62,10 +62,10 @@ outline: [2, 3]
 <p>
 三处是<strong>同一个根因</strong>：系统只认规范名，而正文不认。</p>
 <p>
-<strong>为什么必须在检索层解决而不是让作者保持一致</strong>：长篇里&quot;同一人物多种叫法&quot;是叙事必需
-（亲昵称呼、尊称、化名），不是作者的错误。让作者改文风来迁就检索是本末倒置。</p>
+<strong>为什么必须在检索层解决</strong>：长篇里&quot;同一人物多种叫法&quot;是叙事必需
+（亲昵称呼、尊称、化名），属于正常写作行为。让作者改文风来迁就检索是本末倒置。</p>
 <hr />
-<h2 id="1-关键决策别名合并进一条子查询而不是各自成一条">1. 关键决策：别名<strong>合并进一条子查询</strong>，而不是各自成一条</h2><p>
+<h2 id="1-关键决策别名合并进一条子查询">1. 关键决策：别名<strong>合并进一条子查询</strong></h2><p>
 原始设想是「查 <code>林晚</code> 自动追加子查询 <code>阿晚</code>」。<strong>实测否掉了这个做法</strong>，改用合并。</p>
 <h3 id="11-实测依据">1.1 实测依据</h3><p>
 真实语料（3 个真实章节，18,469 字 → 62 块），把正文中 70% 的「素世」替换成外号「世酱」
@@ -103,7 +103,7 @@ top-8 命中外号块</th>
 </table></div>
 <p>
 <strong>结论</strong>：合并成一条的效果<strong>等于</strong>单独查外号，比只查规范名更好。</p>
-<h3 id="12-为什么合并而不是追加独立子查询">1.2 为什么合并，而不是追加独立子查询</h3><div class="tbl-wrap"><table>
+<h3 id="12-为什么合并成一条">1.2 为什么合并成一条</h3><div class="tbl-wrap"><table>
 <thead>
 <tr>
 <th>
@@ -185,7 +185,7 @@ class Character(TypedDict):
 <td>
 放 <code>sidecar_events</code></td>
 <td>
-该表是<strong>追加式事件日志</strong>（<code>log_key, seq, payload</code>），不是状态存储。拿它当权威数据必须在读路径上重放日志，等于凭空多一条读路径 + 一个新失败模式</td>
+该表是<strong>追加式事件日志</strong>（<code>log_key, seq, payload</code>）。它不存状态：拿它当权威数据必须在读路径上重放日志，等于凭空多一条读路径 + 一个新失败模式</td>
 </tr>
 </tbody>
 </table></div>
@@ -193,7 +193,7 @@ class Character(TypedDict):
 放 <code>Character.aliases</code> 的理由：</p>
 <ol>
 <li>
-<strong>别名是角色的属性</strong>，不是独立实体——天然随角色一起被 <code>apply_ops.upsert</code> 写进 State</li>
+<strong>别名是角色的属性</strong>，天然随角色一起被 <code>apply_ops.upsert</code> 写进 State</li>
 <li>
 <strong>checkpoint 已有</strong> → 时间旅行、快照回退自动一致（<code>rag.html</code> §8 要求&quot;同输入同结果&quot;）</li>
 <li>
@@ -206,11 +206,11 @@ class Character(TypedDict):
 <blockquote>
 <p>
 <strong>前置条件</strong>：跨项目共享的外号词典不在本设计范围。若将来需要，应作为独立的全局词表，
-而不该塞进 <code>Character</code>。</p>
+塞进 <code>Character</code> 不合适。</p>
 </blockquote>
 <hr />
 <h2 id="3-逐文件改动清单">3. 逐文件改动清单</h2><h3 id="31-数据模型">3.1 数据模型</h3><p>
-<strong><code>app/core/state.py</code> · <code>class Character</code>（第 209 行）</strong></p>
+<strong><code>app/core/state.py</code> · <code>class Character</code>（第 236 行，<code>aliases</code> 在 244、<code>tier</code> 在 247）</strong></p>
 <pre><code class="language-python">class Character(TypedDict):
     id: str
     name: str
@@ -224,9 +224,9 @@ class Character(TypedDict):
 顺带修一处<strong>已有漂移</strong>：前端 <code>Character</code> 有 <code>tier?: string</code>（角色层级），后端 TypedDict 没有，
 导致前端那个字段永远读不到。既然要动这个 TypedDict，一并补上。</p>
 <p>
-<code>state.py:385</code> 的初始 <code>character_settings=[]</code> 不受影响。</p>
-<h3 id="32-归一化的单一入口新增-4-个函数">3.2 归一化的单一入口（新增 4 个函数）</h3><p>
-<strong><code>app/core/rag.py</code></strong> — 放在 <code>_scope_filter</code> 之后（检索工具区）：</p>
+<code>state.py:424</code> 的初始 <code>character_settings=[]</code> 不受影响。</p>
+<h3 id="32-归一化的单一入口新增-5-个函数">3.2 归一化的单一入口（新增 1 个常量 + 5 个函数）</h3><p>
+<strong><code>app/core/rag.py:135-211</code></strong> — 放在 <code>_rrf_merge</code> 之后、<code>LocalRAG</code> 之前的检索工具区：</p>
 <pre><code class="language-python">def _char_entries(state) -&gt; List[Dict[str, Any]]:
     &quot;&quot;&quot;全部角色 + 展开别名。**归一化的唯一入口**——三个消费方都走它，
     避免三处各写一遍展开逻辑而互相漂移。&quot;&quot;&quot;
@@ -242,7 +242,8 @@ class Character(TypedDict):
             &quot;id&quot;: str(c.get(&quot;id&quot;) or &quot;&quot;),
             &quot;name&quot;: name,
             &quot;role&quot;: str(c.get(&quot;role&quot;) or &quot;&quot;),
-            &quot;aliases&quot;: [a for a in aliases if a != name],   # 规范名不重复进别名表
+            &quot;aliases&quot;: [a for a in aliases if a != name and len(a) &gt;= 2],  # 规范名不重复进别名表；单字别名噪声大于收益
+            &quot;raw&quot;: c,   # ← 见 §9「与设计稿的偏差」：入库文本还要用 personality / background / appearance 等散文字段
         })
     return out
 def _all_names(entry) -&gt; List[str]:
@@ -260,7 +261,7 @@ def _match_in(text: str, entry) -&gt; Optional[str]:
     return None
 def _query_text(entry) -&gt; str:
     &quot;&quot;&quot;角色子查询文本 = 规范名 + 全部别名 + 定位。
-    别名**合并进同一条**而不是各自成条：实测合并的召回等于单独查别名（8/8 vs 7/8），
+    别名**合并进同一条**：实测合并的召回等于单独查别名（8/8 vs 7/8），
     而独立成条会挤占 `MAX_SUBQUERIES=6` 的名额，把伏笔和出场角色顶掉
     （`rag.html` §8 实测过的坑）。
     别名之间用空格分隔 —— `sparse.bigrams()` 按空白分字段、不跨窗
@@ -274,7 +275,7 @@ def _query_text(entry) -&gt; str:
 否则同一段文本在两次索引里可能产出不同前缀，破坏幂等覆盖。</p>
 </blockquote>
 <h3 id="33-写侧入库前缀富化-收益最大的改动">3.3 写侧（入库前缀富化）—— <strong>收益最大的改动</strong></h3><p>
-<strong><code>app/core/rag.py</code> · <code>_names_in()</code>（第 1288 行）与 <code>_character_names()</code>（第 1280 行）</strong></p>
+<strong><code>app/core/rag.py</code> · <code>_names_in()</code>（第 1443 行）与 <code>_character_names()</code>（第 1434 行）</strong></p>
 <pre><code class="language-python"># 现状：只返回规范名列表，且用 `n in text` 精确匹配
 def _character_names(state): return [str(c.get(&quot;name&quot;)).strip() for c in ...]
 def _names_in(text, names):  return [n for n in names if n in text][:ENRICH_MAX_NAMES]
@@ -282,7 +283,7 @@ def _names_in(text, names):  return [n for n in names if n in text][:ENRICH_MAX_
 def _names_in(text: str, entries: List[Dict[str, Any]]) -&gt; List[str]:
     &quot;&quot;&quot;本块里实际出现的角色**规范名**（按设定表顺序，保证确定性）。
     与旧版的区别：① 认别名（正文写「阿晚」也算命中「林晚」）；
-    ② 输出**规范名**而非命中的那个写法 —— 前缀里必须只有规范名，
+    ② 输出**规范名**，不输出命中的那个写法 —— 前缀里必须只有规范名，
     否则引用卡 / `_format_context` 会把同一个角色显示成两三个名字。
     &quot;&quot;&quot;
     hit = []
@@ -309,7 +310,7 @@ def _names_in(text: str, entries: List[Dict[str, Any]]) -&gt; List[str]:
 <tbody>
 <tr>
 <td>
-<code>rag.py:1280</code> <code>_character_names()</code></td>
+<code>rag.py:1434</code> <code>_character_names()</code></td>
 <td>
 返回 <code>List[str]</code>（规范名）</td>
 <td>
@@ -317,7 +318,7 @@ def _names_in(text: str, entries: List[Dict[str, Any]]) -&gt; List[str]:
 </tr>
 <tr>
 <td>
-<code>rag.py:1227</code> <code>index_chapter(...)</code> 签名</td>
+<code>rag.py:1240</code> <code>index_chapter(...)</code> 签名</td>
 <td>
 <code>character_names: Optional[List[str]]</code></td>
 <td>
@@ -325,7 +326,7 @@ def _names_in(text: str, entries: List[Dict[str, Any]]) -&gt; List[str]:
 </tr>
 <tr>
 <td>
-<code>rag.py:1246</code> <code>reindex_chapter_in_state()</code></td>
+<code>rag.py:1386</code> <code>reindex_chapter_in_state()</code></td>
 <td>
 传 <code>_character_names(state)</code></td>
 <td>
@@ -333,7 +334,7 @@ def _names_in(text: str, entries: List[Dict[str, Any]]) -&gt; List[str]:
 </tr>
 <tr>
 <td>
-<code>rag.py:1550</code> <code>_reindex_chapters()</code></td>
+<code>rag.py:1791</code> <code>_reindex_chapters()</code></td>
 <td>
 传 <code>_character_names(state)</code></td>
 <td>
@@ -341,7 +342,7 @@ def _names_in(text: str, entries: List[Dict[str, Any]]) -&gt; List[str]:
 </tr>
 <tr>
 <td>
-<code>nodes.py:1743</code> <code>_index_approved_chapter()</code></td>
+<code>nodes.py:1508</code> <code>_index_approved_chapter()</code></td>
 <td>
 传 <code>_character_names(state)</code></td>
 <td>
@@ -349,9 +350,17 @@ def _names_in(text: str, entries: List[Dict[str, Any]]) -&gt; List[str]:
 </tr>
 <tr>
 <td>
-<code>rag.py::_enrich_entries()</code></td>
+<code>rag.py:1270 <code>index_chapter()</code></code>（章节块前缀拼装）</td>
 <td>
-<code>names = _character_names(state)</code> → <code>_names_in(e[&quot;text&quot;], names)</code></td>
+<code>names = list(character_names or [])</code> → <code>_names_in(piece, entries)</code></td>
+<td>
+传入的已是 entries，无需改动（调用方换源即可）</td>
+</tr>
+<tr>
+<td>
+<code>rag.py:1466 <code>_setting_prefix()</code></code>（设定块身份前缀 +「相关角色」）</td>
+<td>
+<code>_names_in(raw, char_entries)</code></td>
 <td>
 换用 <code>_char_entries</code>（设定块也要认别名）</td>
 </tr>
@@ -374,7 +383,7 @@ def _names_in(text: str, entries: List[Dict[str, Any]]) -&gt; List[str]:
 </blockquote>
 <h3 id="34-读侧子查询构造-你要的那条">3.4 读侧（子查询构造）—— 你要的那条</h3><p>
 <strong><code>app/core/rag.py</code> · <code>build_story_queries_with_info()</code></strong></p>
-<pre><code class="language-python"># 现状（第 679 行）：
+<pre><code class="language-python"># 改造前的基线（第 679 行）：
 items.append(f&quot;{c['name']} {c.get('role', '')}&quot;)
 # 改为：
 items.append(_query_text(entry))
@@ -384,15 +393,15 @@ items.append(_query_text(entry))
 ⚠ <strong>有两处</strong>同样的写法，别漏：</p>
 <ul>
 <li>
-<code>rag.py:679</code> — <code>build_story_queries_with_info</code>（写章保底检索）</li>
+<code>rag.py:735</code> — <code>build_story_queries_with_info</code>（写章保底检索）</li>
 <li>
-<code>rag.py:719</code> — <code>build_setting_queries</code>（世界观/人设阶段）</li>
+<code>rag.py:786</code> — <code>build_setting_queries</code>（世界观/人设阶段）</li>
 </ul>
 <p>
 两处都要改，否则早期阶段（还没有章纲）仍按规范名检索。</p>
 </blockquote>
 <p>
-<strong>出场判定同样要改</strong>（<code>rag.py:675-676</code>）：</p>
+<strong>出场判定同样要改</strong>（<code>rag.py:765-766</code>）：</p>
 <pre><code class="language-python"># 现状：只认规范名
 on_stage  = [c for c in chars if str(c[&quot;name&quot;]) in stage_text]
 off_stage = [c for c in chars if str(c[&quot;name&quot;]) not in stage_text]
@@ -446,19 +455,20 @@ off_stage，等于把本章<strong>最该检索的人</strong>挤到 <code>MAX_S
 </tbody>
 </table></div>
 <h3 id="36-llm-生成侧让新角色自带别名">3.6 LLM 生成侧（让新角色自带别名）</h3><p>
-<strong><code>app/core/nodes.py</code>（人设阶段角色生成 prompt）</strong> 与
-<strong><code>app/core/tools.py:222</code>（<code>new_char</code> 构造）/ <code>:238</code>（落库）</strong>：</p>
+<strong><code>app/core/nodes.py</code>（人设阶段角色生成 prompt <code>nodes.py:428-434</code>、章纲提名 schema <code>nodes.py:714</code>）</strong>与
+<strong>落盘点 <code>nodes.py:861-902</code> 的 <code>_apply_new_characters</code></strong>：</p>
 <p>
 在角色生成的 JSON schema / 提示里加一个字段，并要求<strong>别名必须来自已有设定集</strong>：</p>
 <pre><code>aliases: 该角色在正文中可能出现的其它叫法（外号/尊称/简称）。
 必须来自已有设定集线索，**没有就返回空数组**，不要臆造。
 </code></pre>
 <p>
-<code>tools.py:238</code> 落地时把 <code>aliases</code> 透传进 <code>new_char</code>。</p>
+别名由 <code>_apply_new_characters</code>（<code>nodes.py:897</code>）落进 <code>character_settings</code>；
+两条生成 prompt（人设 <code>nodes.py:434</code>、章纲 <code>nodes.py:714</code>）都已要求「没有就返回空数组，不要臆造」。</p>
 <blockquote>
 <p>
 ⚠ 既有角色<strong>不会被 LLM 补全别名</strong> —— 那是一次全量改写，等于重排全书检索结果。
-老角色的别名由<strong>作者在设定中心手填</strong>。这是刻意的：别名是作者的判断，不是模型的推断。</p>
+老角色的别名由<strong>作者在设定中心手填</strong>。这是刻意的：别名是作者的判断。</p>
 </blockquote>
 <h3 id="37-前端-设定中心">3.7 前端 · 设定中心</h3><p>
 <strong><code>frontend/src/types/index.ts</code>（第 171 行）</strong></p>
@@ -478,7 +488,7 @@ off_stage，等于把本章<strong>最该检索的人</strong>挤到 <code>MAX_S
 <li>
 新增「别名」标签输入：回车或逗号分隔成 chip，chip 上带 <code>×</code> 可删</li>
 <li>
-只读态展示为 <code>林晚</code> 后跟灰色小字 <code>别名：阿晚、林家小姐</code></li>
+只读态展示为 <code>林晚</code> 后跟灰色小字 <code>（阿晚、林家小姐）</code>（只取前 2 个）</li>
 <li>
 上限提示 3 个（与 §6 的预算约束一致）</li>
 <li>
@@ -494,7 +504,7 @@ off_stage，等于把本章<strong>最该检索的人</strong>挤到 <code>MAX_S
 否则作者会误以为&quot;填了别名就立刻全局生效&quot;</li>
 <li>
 若要让老块也认别名：走 <code>reindex(state, scope=&quot;chapters&quot;)</code>。
-注意 <code>scope</code> 不含 <code>documents</code>，上传文档不重嵌（<code>rag.py</code> 既有语义）</li>
+注意 <code>scope=&quot;documents&quot;</code> 只计数不重嵌（上传文档原文不留存，删了就是永久丢失作者的设定参考，见 <code>rag.py</code>）</li>
 </ul>
 <hr />
 <h2 id="5-测试清单teststest_entity_aliaspy">5. 测试清单（<code>tests/test_entity_alias.py</code>）</h2><div class="tbl-wrap"><table>
@@ -695,7 +705,7 @@ prompt 明确&quot;没有就返回空数组&quot;；臆造的外号<strong>进�
 <td>
 <code>app/core/rag.py</code></td>
 <td>
-<strong>新增</strong> <code>_char_entries</code> / <code>_all_names</code> / <code>_match_in</code> / <code>_query_text</code>；改 <code>_names_in</code>、<code>_character_names</code>、<code>build_story_queries_with_info</code>（679）、<code>build_setting_queries</code>（719）、on_stage 判定（675-676）、<code>index_settings</code> 角色块文本、<strong>4 处</strong> <code>character_names=</code> 调用点（1227 / 1246 / 1550 + 签名）</td>
+<strong>新增</strong> <code>_char_entries</code> / <code>_all_names</code> / <code>_match_in</code> / <code>_query_text</code>；改 <code>_names_in</code>、<code>_character_names</code>、<code>build_story_queries_with_info</code>（735）、<code>build_setting_queries</code>（786）、on_stage 判定（765-766）、<code>index_settings</code> 角色块文本、<strong>3 处</strong> <code>character_names=</code> 调用点（rag.py:1400 / rag.py:1811 / nodes.py:1538）+ 2 处签名（rag.py:1245 index_chapter、rag.py:1304 reindex_chapter）</td>
 <td>
 中（约 60 行）</td>
 </tr>
@@ -703,17 +713,9 @@ prompt 明确&quot;没有就返回空数组&quot;；臆造的外号<strong>进�
 <td>
 <code>app/core/nodes.py</code></td>
 <td>
-<code>nodes.py:1743</code> 调用点；人设阶段角色生成 prompt 加 <code>aliases</code></td>
+<code>nodes.py:1538</code> 调用点；人设阶段角色生成 prompt 加 <code>aliases</code></td>
 <td>
 小（约 6 行）</td>
-</tr>
-<tr>
-<td>
-<code>app/core/tools.py</code></td>
-<td>
-<code>tools.py:222/238</code> 透传 <code>aliases</code>；角色生成 prompt</td>
-<td>
-小（约 4 行）</td>
 </tr>
 <tr>
 <td>
@@ -735,7 +737,7 @@ prompt 明确&quot;没有就返回空数组&quot;；臆造的外号<strong>进�
 <td>
 <code>tests/test_entity_alias.py</code></td>
 <td>
-12 条回归</td>
+22 条回归</td>
 <td>
 新文件</td>
 </tr>
@@ -782,7 +784,7 @@ prompt 明确&quot;没有就返回空数组&quot;；臆造的外号<strong>进�
 <td>
 老角色由 LLM 自动补别名</td>
 <td>
-等于重排全书检索结果；别名是作者判断，不是模型推断</td>
+等于重排全书检索结果；别名由作者判断</td>
 </tr>
 <tr>
 <td>
@@ -855,7 +857,7 @@ prompt 明确&quot;没有就返回空数组&quot;；臆造的外号<strong>进�
 </tr>
 </tbody>
 </table></div>
-<h3 id="与设计稿的两处偏差">与设计稿的两处偏差</h3><ol>
+<h3 id="与设计稿的三处偏差">与设计稿的三处偏差</h3><ol>
 <li>
 <strong><code>_character_names()</code> 保留了名字但改了语义</strong> —— 返回值从 <code>List[str]</code> 变成归一化条目
 <code>List[Dict]</code>。理由：<code>nodes.py</code> 也在 import 它，与其为改一串 import，不如让名字跟着语义走，
@@ -863,19 +865,25 @@ prompt 明确&quot;没有就返回空数组&quot;；臆造的外号<strong>进�
 <li>
 <strong><code>test_chunking_enrichment.py</code> 有 2 条既有用例需改签名</strong> —— <code>_names_in</code> 从收
 <code>List[str]</code> 改成收 entries。已加 <code>_entries()</code> 辅助函数保持原语义，<strong>断言未放宽</strong>。</li>
+<li>
+<strong><code>_char_entries</code> 多了 <code>raw</code> 字段</strong> —— 归一化只关心「怎么称呼这个角色」，
+但 <code>index_settings</code> 还要用原始的 <code>personality / background / appearance</code> 等散文字段。
+不带上它，调用方就只能拿到 id/name/role/aliases，字段值会被写成空串。</li>
 </ol>
 <h3 id="额外做的两件事设计稿未列但发现后必须做">额外做的两件事（设计稿未列，但发现后必须做）</h3><ol>
 <li>
-<strong><code>_character_block()</code> 带别名</strong> —— <code>nodes.py:455</code>。作者在设定中心填了别名却看不到它
+<strong><code>_character_block()</code> 带别名</strong> —— <code>prompts.py:189-195</code>（<code>nodes.py:42</code> 只是 re-export）。作者在设定中心填了别名却看不到它
 出现在正文上下文里，会以为&quot;这个字段没生效&quot;。现在渲染为
 <code>- 林晚（主角，又称阿晚、林家小姐）：性格=…</code></li>
 <li>
 <strong>设定中心搜索匹配别名</strong> —— <code>SettingCenter.tsx</code>。作者回忆角色时很可能只记得外号
-（「阿晚」）而不是规范名（「林晚」），搜索漏了这一条等于白填别名。</li>
+（「阿晚」），可能想不起规范名（「林晚」），搜索漏了这一条等于白填别名。</li>
 </ol>
-<h3 id="回归测试teststest_entity_aliaspy17-条">回归测试（<code>tests/test_entity_alias.py</code>，17 条）</h3><p>
-覆盖设计稿 §5 的 12 条，另加 5 条：单字别名剔除、别名含规范名自身、
-<code>build_setting_queries</code> 也带别名、设定块文本含 <code>别名=</code>、前缀预算不变量①。</p>
+<h3 id="回归测试teststest_entity_aliaspy22-条">回归测试（<code>tests/test_entity_alias.py</code>，22 条）</h3><p>
+覆盖设计稿 §5 的 12 条，另加 10 条：单字别名剔除、别名含规范名自身、
+<code>build_setting_queries</code> 也带别名、设定块文本含 <code>别名=</code>、前缀预算不变量①、
+<code>_char_entries</code> 保留 raw 字段、角色块文本含真实字段值、设定块不超 CHUNK_SIZE、
+子查询别名截断、出场 info 输出规范名、章节前缀对别名文本输出规范名。</p>
 <p>
 其中最关键的一条是端到端写侧验证：</p>
 <pre><code>正文只写「阿晚」-&gt; _names_in 命中 -&gt; 前缀写成「出场：林晚」

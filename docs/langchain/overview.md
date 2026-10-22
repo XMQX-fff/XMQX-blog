@@ -74,7 +74,7 @@ print(result["messages"][-1].content_blocks)
   （见本博客 [LangGraph 学习笔记](/langgraph/)）。
 
 **一句话选型**：要快用 Deep Agents，要可控用 LangChain，
-要编排复杂流程用 LangGraph。三者不是竞争关系，是同一套技术的三个抽象层。
+要编排复杂流程用 LangGraph。三者是同一套技术的三个抽象层，各管一段。
 
 **LangSmith** 则独立于三者之外，承担可观测性、评估与部署。
 它不参与推理，只负责"看得见、测得准、发得出"。
@@ -100,7 +100,7 @@ LangGraph Platform 已更名为 **LangSmith Deployment**。
    人在回路、持久化等能力。**这意味着**：智能体天然可以
    "暂停等审批、崩溃后恢复、跨轮次记忆"，不用自己造。
 4. **使用 LangSmith 调试**：在一个位置检查追踪记录、工具调用、
-   状态转换与延迟。**这意味着**：出问题能复盘，而不是靠猜。
+   状态转换与延迟。**这意味着**：出问题能复盘，不用靠猜。
 
 ## 设计理念
 
@@ -134,7 +134,7 @@ LangGraph Platform 已更名为 **LangSmith Deployment**。
 | 2022-10 | v0.0.1 发布（早于 ChatGPT 一个月），含 LLM 抽象与"链"（Chains），名称来自 Language + Chains |
 | 2022-12 | 加入首批通用智能体，基于 ReAct 论文，解析模型输出的 JSON |
 | 2023-01 | OpenAI 发布 Chat Completion API，输入输出由"字符串"变为"消息列表"，LangChain 随之调整 |
-| 2023-03 | OpenAI 发布函数调用，改为优先使用该能力而非自行解析 JSON |
+| 2023-03 | OpenAI 发布函数调用，改为优先使用函数调用能力，不再自行解析 JSON |
 | 2023-06 | 发布闭源平台 **LangSmith**（可观测性与评估） |
 | 2024-02 | **LangGraph 开源**，补足底层编排：流式传输、持久执行、短期记忆、人在回路 |
 | 2024-10 | 超过单次 LLM 调用的应用首选 LangGraph；大多数链与智能体标记弃用 |

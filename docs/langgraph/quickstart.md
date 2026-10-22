@@ -37,13 +37,13 @@ print(result["messages"][-1].content)
 模型节点与工具节点之间以条件边相连，形成循环，直至模型不再发起工具调用。
 
 ::: warning 返回值结构
-返回值是 `{"messages": [...]}` 而非字符串。
+返回值是一个 `{"messages": [...]}` 字典。
 获取最终回答须使用 `result["messages"][-1].content`。
 直接输出整个返回值会显示一串 AIMessage / ToolMessage，易被误判为异常。
 :::
 
 工具即普通 Python 函数，**docstring 会作为工具描述传入模型**——
-因此该字符串的读者是模型而非开发者。参数类型注解同理，模型依赖它生成合法入参。
+因此该字符串的读者是模型，开发者看它意义不大。参数类型注解同理，模型依赖它生成合法入参。
 
 ## 2. 配置模型参数
 
@@ -134,7 +134,7 @@ agent.invoke(
 
 ## 5. 结构化输出
 
-许多场景需要的不是自然语言文本，而是可直接供下游代码使用的对象：
+许多场景需要的是可直接供下游代码使用的对象：
 
 ```python
 from pydantic import BaseModel
@@ -152,7 +152,7 @@ resp = agent.invoke({"messages": [{"role": "user", "content": "weather in sf"}]}
 print(resp["structured_response"])
 ```
 
-结果位于 `structured_response` 字段，而非 `messages`。
+结果放在 `structured_response` 字段里（`messages` 里没有）。
 
 ::: caution 隐含成本
 指定 `response_format` 后，智能体循环结束时会**额外调用一次模型**，

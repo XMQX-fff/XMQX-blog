@@ -68,7 +68,7 @@ RAG 就是让大模型先检索资料、再基于资料作答的技术。（示�
 
 注意两点：
 
-1. **返回值是 `AIMessage` 对象，不是 `str`**。取文本内容用 `resp.text`；
+1. **返回值是 `AIMessage` 对象**。取文本内容用 `resp.text`；
    后面 2.4 节会详细介绍这个对象上有哪些属性。
 2. `usage_metadata` 记录本次调用的 token 用量，是做成本统计的依据。
    `input_token_details` / `output_token_details` 里还能看到
@@ -251,7 +251,7 @@ print(message.content_blocks)
 换 OpenAI 返回的消息也是这个结构，业务代码就不用给每家写分支了。
 
 ::: note 向后兼容
-`content_blocks` 是 v1 的**新增属性**，不是 `content` 的替代品。
+`content_blocks` 是 v1 的**新增属性**，`content` 仍然保留。
 用 `content_blocks` 初始化消息时，`content` 仍会被同步填充，旧代码不受影响。
 :::
 
@@ -373,7 +373,7 @@ def get_weather(city: str) -> str:
 ```
 
 1. **类型提示是必需的**——它构成工具的输入 Schema，模型靠它生成合法入参；
-2. **docstring 成为工具描述**——注意，这段话的读者是**模型**而不是开发者，
+2. **docstring 成为工具描述**——注意，这段话写给**模型**看，开发者看它意义不大，
    写清楚"什么时候该用我"比写实现细节更重要；
 3. 返回值转成 `ToolMessage` 回传（见 3.4 节）。
 
@@ -447,7 +447,7 @@ def search(query: str) -> str:
 - "记住用户上次的选择"——要访问**长期记忆存储**；
 - "把这次调用记到哪个 tool_call 上"——要知道**当前工具调用 ID**。
 
-这些信息有个共同点：**它们是运行期的数据，不是工具的业务参数**。
+这些信息有个共同点：**它们是运行期的数据，与工具的业务参数是两码事**。
 如果把它们做成工具参数（比如 `def set_name(new_name, state, user_id)`），
 会出两个问题：模型会在 schema 里看到这些参数并试图填值（它根本不知道
 当前状态是什么）；你得在每次调用时手工传递它们。
@@ -780,7 +780,7 @@ HumanMessage ──▶ 模型推理 ──▶ AIMessage.tool_calls（模型决�
 ## 5. 小结
 
 - 模型经 `init_chat_model` 统一初始化，`"provider:model"` 字符串 + `base_url`
-  是切换提供商的唯二改动点；`invoke` 返回的是 `AIMessage` 不是字符串。
+  是切换提供商的唯二改动点；`invoke` 返回的是 `AIMessage`。
 - `content` 保留原始形态保证兼容，`content_blocks` 提供跨提供商的
   类型安全视图，推理内容统一为 `reasoning` 块。
 - 工具即带类型提示和好 docstring 的函数；`tool_call_id` 必须配对，

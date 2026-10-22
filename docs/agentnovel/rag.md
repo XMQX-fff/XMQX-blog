@@ -40,7 +40,7 @@ outline: [2, 3]
     <p class="lead">
       很多人对 RAG 的印象是「让模型知道更多资料」。但在这类长篇创作系统里，
       检索要解决的是两个更硬的问题——<b>一个是容量问题，一个是时效问题</b>。
-      它们都不是「优化」，是「不解决就做不成」。
+      它们属于「不解决就做不成」的那类问题，谈不上优化。
     </p>
     <h3 id="why-2">限制一：上下文窗口装不下前 29 章</h3>
     <p>
@@ -54,8 +54,8 @@ outline: [2, 3]
       <li>而且这是<b>死路</b>：写到第 100 章时，20 万字无论哪个模型都装不下。</li>
     </ul>
     <div class="note w"><b>⚠ 关键认知</b><div>
-      上下文窗口大 ≠ 能用好上下文。窗口是<b>工作记忆</b>，不是<b>数据库</b>。
-      数据库的用法是「需要什么查什么」，而不是「每次把整个库读一遍」。
+      上下文窗口大 ≠ 能用好上下文。窗口是<b>工作记忆</b>，得按「需要什么查什么」的方式用，
+      每次把整个库读一遍的做法行不通。
     </div></div>
     <h3 id="why-3">限制二：模型不会「回忆」，只会「读」</h3>
     <p>
@@ -92,9 +92,9 @@ outline: [2, 3]
         <tbody>
           <tr><td>「我这一章要写什么」</td><td>章纲标题 + 梗概</td><td><code>build_story_queries</code></td></tr>
           <tr><td>「有哪些伏笔要收」</td><td>未回收伏笔清单</td><td><code>build_story_queries</code></td></tr>
-          <tr><td>「谁会出场」</td><td>角色名 + 身份（出场者优先）</td><td><code>_chapter_stage_text</code></td></tr>
+          <tr><td>「谁会出场」</td><td>规范名 + 别名 + 身份（出场者优先）</td><td><code>_chapter_stage_text</code></td></tr>
           <tr><td>「去找相关段落」</td><td>embedding + 向量检索</td><td><code>_fetch_per_query</code></td></tr>
-          <tr><td>「哪几篇最相关」</td><td>名次轮转合并 + 0.45 阈值</td><td><code>_merge_round_robin</code></td></tr>
+          <tr><td>「哪几篇最相关」</td><td>每条子查询先过 0.45 阈值，再名次轮转合并</td><td><code>search_dense_leg</code> → <code>_merge_round_robin</code></td></tr>
           <tr><td>「读一遍」</td><td>格式化成带出处的文本块注入 prompt</td><td><code>_format_context</code></td></tr>
         </tbody>
       </table>
@@ -141,9 +141,11 @@ outline: [2, 3]
         <span class="arw"></span>
         <div class="node soft">并发向量检索<small>6 线程 · 每条 top3</small></div>
         <span class="arw"></span>
+        <div class="node gate">阈值 0.45<small>每条子查询各自滤</small></div>
+        <span class="arw"></span>
         <div class="node gate">轮转合并 + 去重<small>取前 8 条</small></div>
         <span class="arw"></span>
-        <div class="node gate">阈值 0.45<small>滤掉不像的</small></div>
+        <div class="node soft">时间偏置<small>最近 5 章提前</small></div>
       </div>
       <div class="link"><em>注入 prompt（截断 500 字/块）+ 下发引用卡</em><i></i></div>
       <div class="flow-router">
@@ -154,7 +156,7 @@ outline: [2, 3]
     </div>
     <h3 id="overview-10">一次写作的上下文预算</h3>
     <p>
-      RAG 不是唯一的信息来源。写作时 prompt 里的东西分三类，来源不同、可靠性也不同：
+      RAG 只是信息来源之一。写作时 prompt 里的东西分三类，来源不同、可靠性也不同：
     </p>
     <div class="tbl-wrap">
       <table>
@@ -210,7 +212,7 @@ outline: [2, 3]
     <div class="note i"><b>💡 小白版理解</b><div>
       向量库可以想象成一个<b>巨大的书架</b>：每段文字被放在一个特定位置，
       意思越接近的段落放得越近。检索就是问「书架上哪个位置离我手里这把钥匙最近」。
-      <b>难点不在书架，而在于如何把文字准确地"钉"到正确的位置上</b>——这就是 embedding 模型的工作。
+      <b>难点在如何把文字准确地"钉"到正确的位置上</b>——这就是 embedding 模型的工作。
     </div></div>
     <h3 id="vector-13">一条铁律：向量只能有一个来源</h3>
     <p>
@@ -223,7 +225,7 @@ outline: [2, 3]
       而且——这才是致命的——早期实现按<b>空格</b>分词。中文没有空格，
       于是<b>整段中文被当成一个 token</b>，任意两段文本都落到不同的桶但彼此正交，
       相关度<b>实测恒为 0.00</b>。<br><br>
-      最可怕的不是它不准，而是它「看起来在工作」：接口正常返回、不报错、有命中条数。
+      最可怕的地方在于它「看起来在工作」：接口正常返回、不报错、有命中条数。
       留着只会制造"检索在跑"的错觉。<b>宁可让检索明确失败，也不能假装成功。</b>
     </div></div>
     <div class="grid g3" style="margin-top:18px">
@@ -234,7 +236,7 @@ outline: [2, 3]
     <h3 id="vector-17">为什么"失败"必须比"凑合"好</h3>
     <p>
       向量库的集合（collection）维度在<b>创建时就固定</b>。如果同一批数据里混进了不同维度的向量，
-      索引会被直接损坏，查询时报维度不匹配。也就是说，<b>降级不是"精度差一点"，而是"把索引搞坏"</b>。
+      索引会被直接损坏，查询时报维度不匹配。也就是说，<b>降级等于把索引搞坏</b>，不存在"精度差一点"这种中间状态。
     </p>
     <p>所以 <code>embeddings.embed_texts()</code> 的契约是：<b>任何异常都返回 <code>None</code></b>，由调用方决定跳过本次操作，绝不做"半成功"。</p>
     <div class="tbl-wrap">
@@ -264,7 +266,7 @@ outline: [2, 3]
     <h2 id="ingest">切块：为什么 500，为什么不按字数硬切</h2>
     <p class="lead">
       向量库不能直接存一整章——一方面太长会稀释语义，另一方面向量检索的<b>最小单位是块</b>：
-      召回的是块，不是章。切块质量直接决定检索质量。
+      召回的单位是块。切块质量直接决定检索质量。
     </p>
     <h3 id="ingest-19">问题：按字符硬切会切出"半句话"</h3>
     <p>
@@ -289,8 +291,8 @@ outline: [2, 3]
       <li><b>滑动窗口拼装</b>：往块里加句子，加不下就封块，然后<b>回取上一块尾部不超过 80 字</b>作为重叠。</li>
     </ul>
     <div class="note i"><b>💡 为什么不包含逗号</b><div>
-      中文逗号不是句子边界，在那里断开只会得到"半句话"的碎片，反而更差。
-      <b>重叠区按完整句回取</b>（而不是硬切字符）：被腰斩的句子在注入时读起来是断的。
+      中文逗号处不构成句子边界，在那里断开只会得到"半句话"的碎片，反而更差。
+      <b>重叠区按完整句回取</b>（不硬切字符）：被腰斩的句子在注入时读起来是断的。
     </div></div>
     <h3 id="ingest-22">重叠 80 字：让切点不落在关键信息上</h3>
     <p>
@@ -324,8 +326,8 @@ outline: [2, 3]
       <code>_injectable(content) = content[:CHUNK_SIZE]</code>。只有 500 字，也就是<b>每块最多只有前 500 字进入模型</b>。
     </p>
     <p>
-      现在的写法是 <code>content[:CHUNK_SIZE]</code>——<b>直接引用同一个常量</b>，不是写死 500。
-      这不是"配出来的巧合"，而是结构上的保证。
+      现在的写法是 <code>content[:CHUNK_SIZE]</code>——<b>直接引用同一个常量</b>。
+      两者恒等由结构保证，无需靠"配数值"去凑。
     </p>
     <div class="note d"><b>✗ 如果两者脱钩会怎样</b><div>
       设块长 C、重叠 O、注入截断 T，则<b>步长 S = C − O</b>。
@@ -370,11 +372,10 @@ outline: [2, 3]
       但它们代表<b>不同位置</b>，去重等于把 2000 字压成 500 字——<b>整段正文凭空消失</b>，而检索侧毫无察觉。
       "下一块与上一块重复"的隐患已由循环里的 <code>cur = []</code> 兜底：每块至少含一个新单元。
     </div></div>
-    <h3 id="ingest-25">切块大小不是自由参数</h3>
+    <h3 id="ingest-25">切块大小受多重约束</h3>
     <div class="note i"><b>💡 为什么不把块调大一点？</b><div>
-      因为块大小不是"越大越准"的旋钮：<b>块太大会让一个向量混进多个主题，精度下降得比块太小更狠</b>。
-      行业里更该走的方向是「<b>匹配粒度与阅读粒度分离</b>」（小块检索 + 父段注入），
-      而不是把块调大。真要调大，必须先想清楚 prompt 预算——注入量是 <code>块长 × 命中条数</code>，翻倍就是翻倍。
+      因为"越大越准"的直觉在这里不成立：<b>块太大会让一个向量混进多个主题，精度下降得比块太小更狠</b>。
+      行业里更该走的方向是「<b>匹配粒度与阅读粒度分离</b>」（小块检索 + 父段注入）；把块调大与此相反。真要调大，必须先想清楚 prompt 预算——注入量是 <code>块长 × 命中条数</code>，翻倍就是翻倍。
     </div></div>
   </div>
 </section>
@@ -405,11 +406,11 @@ outline: [2, 3]
     <p>
       这是最容易搞错的一点。embedding 是<b>对最终入库文本算的</b>，所以前缀必须在写入前拼好：
       放在入库后就没意义了（向量已经算完）。<code>index_settings</code> 里因此是
-      <code>_enrich_entries(entries, state)</code> → <code>rag.add_texts(...)</code> 的顺序。
+      <code>add_chunks()</code>（<b>切块前</b>逐块拼好身份前缀与「相关角色」）→ <code>rag.add_texts(...)</code> 的顺序。
     </p>
     <h3 id="enrich-30">预算：为什么正文只切到 379 字</h3>
     <p>
-      前缀要占用块内空间，于是有一个看似奇怪的设计——<b>正文只切 379 字而不是 500 字</b>：
+      前缀要占用块内空间，于是有一个看似奇怪的设计——<b>正文只切 379 字</b>（500 里给前缀留出预算）：
     </p>
 <pre><span class="k">CHUNK_SIZE</span>    = 500  <span class="c"># 块的绝对上限，也等于注入截断</span>
 <span class="k">ENRICH_RESERVE</span> = 120  <span class="c"># 前缀最多占多少字</span>
@@ -424,9 +425,9 @@ outline: [2, 3]
       <li><b>章纲摘要</b>（章节块）：<code>【标题】梗概</code></li>
       <li><b>本章出场角色</b>（章节块）：<code>出场：素世、陆时</code>，最多 <code>ENRICH_MAX_NAMES = 8</code> 个，
           <b>只列本块里真出现的</b>——把本章 12 个角色全写进去会让每块都带一串无关专名，既吃预算又稀释语义</li>
-      <li><b>相关角色</b>（设定块）：<code>相关角色：素世、陆时</code>，在 <code>_enrich_entries</code> 里补</li>
+      <li><b>相关角色</b>（设定块）：<code>相关角色：素世、陆时</code>，由 <code>_setting_prefix()</code> 与身份前缀<b>共用同一份 120 字预算</b>一起 clip</li>
     </ul>
-    <div class="note i"><b>💡 <code>_clip_prefix</code> 为什么用固定上限而非按实际长度自适应</b><div>
+    <div class="note i"><b>💡 <code>_clip_prefix</code> 为什么选固定上限</b><div>
       前缀长度固定 → <b>块的切分位置只取决于正文</b>，不因"这一块恰好提到几个角色"而漂移。
       切分几何稳定，<b>确定性 id 与陈旧块清理才不会误判</b>（见下一节）。
       超长时截成 <code>limit-1</code> 字 + 省略号，保留"被截了"的可读提示。
@@ -441,8 +442,8 @@ outline: [2, 3]
         <tbody>
           <tr><td><code>chapter</code></td><td>已定稿章节正文</td><td><code>chapter_id / chapter_index / title / outline_title / outline_summary / chunk_index</code></td><td><code>reindex_chapter</code></td></tr>
           <tr><td><code>world_setting</code></td><td>世界观各字段，<code>世界观-{字段}: {值}</code></td><td><code>field</code></td><td><code>index_settings</code></td></tr>
-          <tr><td><code>character</code></td><td><code>角色-{名}({定位}): 性格/背景/目标</code></td><td><code>character_id / name</code></td><td><code>index_settings</code></td></tr>
-          <tr><td><code>foreshadow</code></td><td><code>伏笔-{id}: 描述 (状态, 埋于第N章)</code></td><td><code>foreshadow_id</code></td><td><code>index_settings</code> / <code>index_foreshadow</code></td></tr>
+          <tr><td><code>character</code></td><td><code>角色-{名}({定位}): 性格/背景/目标/外貌/说话方式（+别名）</code></td><td><code>character_id / name / title</code></td><td><code>index_settings</code></td></tr>
+          <tr><td><code>foreshadow</code></td><td><code>伏笔-{id}: 描述</code><br><small>状态 / 埋于章号<b>只进 payload</b>，不进文本</small></td><td><code>foreshadow_id / status / chapter_index</code></td><td><code>index_settings</code> / <code>index_foreshadow</code></td></tr>
           <tr><td><code>document</code></td><td>作者上传的设定参考（txt/md/pdf/docx）</td><td><code>doc_id / filename</code></td><td><code>documents.upload</code></td></tr>
         </tbody>
       </table>
@@ -452,7 +453,7 @@ outline: [2, 3]
       这里有个历史教训。世界观 / 角色 / 伏笔曾经是「<b>一条 = 一个字段整段</b>」入库的，
       而注入 prompt 时 <code>_format_context</code> 会按 500 字截断。后果：
       <b>世界观的大段描述（实测 <code>setting</code> 常600~1500 字）后半段永远进不了模型</b>，
-      而作者以为设定已经被参考了。现在三类设定都按 500/80 切，与章节和上传文档<b>完全一致</b>。
+      而作者以为设定已经被参考了。现在三类设定都按 <code>CONTENT_BUDGET − len(前缀)</code> 切（<b>≤ 379</b>），章节按 <code>CONTENT_BUDGET</code>(379) 切，只有上传文档吃满 500 —— 三者都 ≤ 注入截断 500，不变量①仍然成立。
     </p>
     <div class="note i"><b>💡 那块长描述后面写的是什么，模型就永远看不见</b></div>
     <p>
@@ -484,7 +485,7 @@ outline: [2, 3]
       id 由「<b>来源 + 该来源的主键 + 块序号</b>」三段决定，而主键在切分位置固定（因为前缀长度固定）的前提下也是固定的。
       Qdrant 的 <code>upsert</code> 按 id 覆盖，于是<b>重复索引天然幂等</b>。
     </p>
-    <div class="note g"><b>✓ 收益：不只是不膨胀</b><div>
+    <div class="note g"><b>✓ 收益：不再膨胀，还省掉三步动作</b><div>
       不再需要「先 scroll 查旧 id → 写新 → 再删旧」这套<b>三步动作</b>，
       也就不存在两个问题：两次写入之间库里同时存在两份内容（挤占 top-k）、
       以及写入失败后误删旧索引的危险窗口。<b>一步 upsert 就够了。</b>
@@ -562,7 +563,7 @@ outline: [2, 3]
           <tr>
             <td><b>B · 设定</b><br><small>世界观/角色/伏笔</small></td>
             <td><b>每次写章末尾</b> / 重建索引</td>
-            <td><code>379</code></td>
+            <td><code>379 − len(前缀)</code><br><small>前缀与正文共用一份预算</small></td>
             <td><code>world_setting:setting:0</code><br><code>character:ch0:0</code><br><code>foreshadow:f07:1</code></td>
             <td style="color:var(--ok)"><b>是</b> → upsert 覆盖</td>
           </tr>
@@ -576,7 +577,7 @@ outline: [2, 3]
           <tr>
             <td><b>D · 伏笔</b></td>
             <td>伏笔状态变更 / 章节删除后</td>
-            <td><code>500</code></td>
+            <td><code>379 − len(前缀)</code><br><small>与 <code>index_settings</code> 完全一致</small></td>
             <td><code>foreshadow:f07:0</code></td>
             <td style="color:var(--ok)"><b>是</b></td>
           </tr>
@@ -618,11 +619,11 @@ outline: [2, 3]
 {"source":"chapter","chapter_id":"c11","chapter_index":11,"title":"第12章 雨夜",
  "outline_title":"第12章 雨夜","outline_summary":"素世与陆时在雨中对峙，陆时终于说出三年前事故的真相。",
  "chunk_index":0}</pre>
-    <div class="note w"><b>⚠ 路径 A 是「先删后写」，不是「先写后删」</b><div>
+    <div class="note w"><b>⚠ 路径 A 固定「先删后写」</b><div>
       这与路径 B <b>相反</b>，且是刻意的：章节 id 是随机的 <code>uuid4</code>，只能靠"先删"来避免新旧并存。
       代价是——<b>若 embedding 在第 8 步失败，该章旧向量已被删掉且不会回滚</b>，
       这一章会从索引里消失，直到下次重建。<br>
-      <code>_index_approved_chapter</code> 只记日志不阻断审核推进（检索是增强不是必需），
+      <code>_index_approved_chapter</code> 只记日志不阻断审核推进（检索只作增强，失败可跳过），
       但账目上会体现为 <code>embedding: unavailable</code>。
       <b>路径 B 特意避开这个风险</b>，所以顺序不同——见下。
     </div></div>
@@ -637,9 +638,9 @@ outline: [2, 3]
       注意它<b>与本章是否定稿无关</b>——设定不受"草稿不入库"约束，而且这里是收敛重复向量的时机。
     </p>
     <ol class="steps">
-      <li><b>构造 entries</b><span>世界观每个字段一条 <code>世界观-{k}: {v}</code>；每个角色一条 <code>角色-{名}({定位}): 性格=…, 背景=…, 目标=…</code>；每条伏笔一条 <code>伏笔-{id}: {描述} (状态: …, 埋于: 第N章)</code>。每类再按 <code>chunk_text(raw, 379)</code> 切块。</span></li>
+      <li><b>构造 entries</b><span>世界观每个字段一条 <code>世界观-{k}: {v}</code>；每个角色一条 <code>角色-{名}({定位}): 性格=…, 背景=…, 目标=…, 外貌=…, 说话方式=…</code>（带别名）；每条伏笔一条 <code>伏笔-{id}: {描述}</code>（<b>状态与埋于章号只进 payload</b>）。每类再按 <code>chunk_text(raw, chunk_size=CONTENT_BUDGET − len(前缀))</code> 切块，保证「前缀 + 正文 ≤ 379 ≤ 500」。</span></li>
       <li><b>定 id</b><span><code>_stable_point_id(source, key, i)</code> → <code>world_setting:setting:0</code> / <code>character:ch0:0</code> / <code>foreshadow:f07:1</code>。<b>与位置绑定，重复运行恒定</b>。</span></li>
-      <li><b>前缀富化（入库前）</b><span><code>_enrich_entries</code> 给每块前置 <code>相关角色：素世、陆时\n</code>——只列本块真出现的。<b>必须在 embedding 前做</b>，否则向量算完了再加前缀毫无意义。</span></li>
+      <li><b>前缀富化（入库前，逐块）</b><span><code>_setting_prefix()</code> 给<b>每一块</b>前置 <code>相关角色：素世、陆时\n</code>——只列本块真出现的，与身份前缀共用 120 字预算。<b>必须在 embedding 前做</b>，否则向量算完了再加前缀毫无意义。</span></li>
       <li><b>upsert</b><span><code>rag.add_texts(texts, metadatas, ids=...)</code>。id 稳定 → 同 id 直接覆盖，<b>写 100 次也还是那些块</b>。</span></li>
       <li><b>失败即停</b><span>返回空列表 → 记 warning「设定索引未更新，保留旧索引」→ <b>直接 return，不清理</b>。这就是「先写后删」的安全语义。</span></li>
       <li><b>清理陈旧块</b><span><code>_prune_stale_settings</code>：一次 scroll 覆盖三个域，删掉「键已不存在」或「<code>chunk_index ≥ 应有块数</code>」的块。</span></li>
@@ -683,7 +684,7 @@ foreshadow:f07:0             75   foreshadow</pre>
     <h3 id="ingestflow-47">路径 C · 上传文档</h3>
     <ol class="steps">
       <li><b>本地解析</b><span>txt/md 直接 decode；pdf/docx 本地解析，<b>不上传第三方</b>。超限返回 413。</span></li>
-      <li><b>切块</b><span><code>chunk_text(text)</code> → <b>默认 500</b>。<b>这里用 500 而不是 379 是对的</b>：上传文档不做前缀富化，不需要给前缀预留预算，所以正文可以吃满 500，且仍 ≤ 注入截断（不变量①成立）。</span></li>
+      <li><b>切块</b><span><code>chunk_text(text)</code> → <b>默认 500</b>。<b>上传文档用 500 是对的</b>：上传文档不做前缀富化，不需要给前缀预留预算，所以正文可以吃满 500，且仍 ≤ 注入截断（不变量①成立）。</span></li>
       <li><b>metadata</b><span><code>{type: "document", source: "document", doc_id, filename, chunk_index}</code>。<code>type</code> 是为兼容早期数据保留的冗余键。</span></li>
       <li><b>落库</b><span><code>rag.add_texts(chunks, metadatas)</code> —— <b>不传 ids</b>，因此不幂等：重复上传同一文件会产生两份向量。</span></li>
     </ol>
@@ -696,16 +697,12 @@ foreshadow:f07:0             75   foreshadow</pre>
       章节删除后要清理伏笔引用（埋下的删除 / 回收过的回滚），必须同步向量库，
       否则检索回来的仍是旧伏笔状态，模型会照着旧状态继续写。
     </p>
-    <div class="note w"><b>⚠ 实测发现的两路径不一致</b><div>
-      同一条 444 字的伏笔描述：<br>
-      · <code>index_settings</code> 用 <code>chunk_text(…, 379)</code> → <b>2 块</b>（<code>f07:0</code>、<code>f07:1</code>）<br>
-      · <code>index_foreshadow</code> 用 <code>chunk_text(text)</code> 默认 500 → <b>1 块</b>（<code>f07:0</code>，475 字）<br><br>
-      两者 id 规则相同，所以不会残留孤儿；但 <code>index_foreshadow</code> 跑完后
-      <code>f07:1</code> 会被判为陈旧而删除，下次 <code>index_settings</code> 又写回来——
-      产生一次无谓的删除/重建。此外它<b>不经过 <code>_enrich_entries</code></b>，块里没有「相关角色」前缀，
-      导致同一条伏笔的向量在两条路径下不同 → 分数轻微漂移。<br>
-      代码注释写的是「与 index_settings 同一套切块与 id 规则」，实际上切块尺寸并不相同。
-      <b>不影响正确性，但值得统一。</b>
+    <div class="note w"><b>⚠ 仅剩的一处差异：<code>index_foreshadow</code> 不带「相关角色」前缀</b><div>
+      切块尺寸与身份前缀规则两条路径现已<b>完全一致</b>（共用 <code>_setting_prefix()</code> 与 <code>_body_budget()</code>），
+      块数不会再互相拉锯——早前「一边切 379 一边切 500、导致 <code>f07:1</code> 被反复删建」的问题已修复。<br>
+      剩下的唯一差别是 <code>index_foreshadow</code> 调用时传入空的角色表（<code>_char_entries({"character_settings": []})</code>），
+      块里因此没有「相关角色：X」这一行 → 同一条伏笔经两条路径写出的向量不同，分数会有轻微漂移。
+      <b>不影响正确性</b>；要完全消除，把 <code>index_foreshadow</code> 也接上 <code>_char_entries(state)</code> 即可。
     </div></div>
     <h3 id="ingestflow-49">入库之后，库里长什么样</h3>
     <p>一次「写第 13 章 + 点通过」之后，这个项目在 Qdrant 里的向量分布：</p>
@@ -732,7 +729,7 @@ foreshadow:f07:0             75   foreshadow</pre>
     <div class="eyebrow">08 · Multi-Query Recall</div>
     <h2 id="retrieve">分条召回：本系统最核心的一个决策</h2>
     <p class="lead">
-      这是整个 RAG 设计里影响最大的一处改动：<b>不再把多个检索意图拼成一条查询，而是拆成多条分别检索，再合并。</b>
+      这是整个 RAG 设计里影响最大的一处改动：<b>多个检索意图拆成多条查询分别检索，再合并。</b>
       如果你只读一节，读这一节。
     </p>
     <h3 id="retrieve-51">旧做法：拼成一条长串</h3>
@@ -784,13 +781,13 @@ foreshadow:f07:0             75   foreshadow</pre>
         <thead><tr><th>顺序</th><th>来源</th><th>条数</th><th>为什么排这个位置</th></tr></thead>
         <tbody>
           <tr><td>1</td><td><b>本章章纲</b>（标题 + 梗概）</td><td>1</td><td>本章的意图本身，最不该被挤掉</td></tr>
-          <tr><td>2</td><td><b>未回收伏笔</b>描述</td><td>≤ 2<br><code>MAX_FORESHADOW_SUBQUERIES</code></td><td>伏笔遗漏是<b>明确的写作事故</b>（读者视角的"作者忘了"），固定留名额而不是按列表顺序截断</td></tr>
-          <tr><td>3</td><td><b>出场角色</b>：<code>名字 + 身份</code></td><td>剩余名额</td><td>先给"章纲/门禁/提名里点到名的"，再给其他</td></tr>
+          <tr><td>2</td><td><b>未回收伏笔</b>描述</td><td>≤ 2<br><code>MAX_FORESHADOW_SUBQUERIES</code></td><td>伏笔遗漏是<b>明确的写作事故</b>（读者视角的"作者忘了"），固定留名额，不按列表顺序截断</td></tr>
+          <tr><td>3</td><td><b>出场角色</b>：<code>规范名 + 别名（≤3）+ 身份</code></td><td>剩余名额</td><td>先给"章纲/门禁/提名里点到名的"，再给其他。别名<b>合并进同一条</b>子查询；独立成条会挤掉伏笔与出场角色的名额</td></tr>
           <tr><td>—</td><td><b>非出场角色</b></td><td>剩余名额</td><td>兜底：可能临时出场，也可能是被提及</td></tr>
         </tbody>
       </table>
     </div>
-    <h4 id="retrieve-56">「出场」是怎么判定的（不是猜的）</h4>
+    <h4 id="retrieve-56">「出场」的判定依据</h4>
     <p>
       <code>_chapter_stage_text</code> 取三个来源，都是作者/LLM <b>已经明确表达过</b>的本章意图：
     </p>
@@ -800,7 +797,8 @@ foreshadow:f07:0             75   foreshadow</pre>
       <li><b>本章提名的新角色</b>（<code>chapter_new_characters</code>，等作者勾选）。</li>
     </ul>
     <p>
-      判定是简单的 <code>名字 in 文本</code> 字符串包含，<b>没有语义推断</b>——刻意保持确定性。
+      判定仍是<b>纯字符串包含、没有语义推断</b>（刻意保持确定性），但匹配的是<b>规范名 + 全部别名</b>（<code>_all_names()</code>）——
+      章纲里写「阿晚出场」必须能认出那就是「林晚」，否则最该检索的人会被挤出 <code>MAX_SUBQUERIES</code>。
     </p>
     <h4 id="retrieve-57">一个曾经漏掉角色的 bug</h4>
     <p>
@@ -810,7 +808,7 @@ foreshadow:f07:0             75   foreshadow</pre>
     </p>
     <div class="note g"><b>✓ 丢弃必须记账</b><div>
       被截断的内容记在 <code>dropped</code> / <code>dropped_queries</code> 里并写进日志与检索账目。
-      <b>静默丢弃等于让作者以为"这个角色的设定这次没被需要"</b>——是漏检，不是设计。
+      <b>静默丢弃等于让作者以为"这个角色的设定这次没被需要"</b>——这种结果其实是漏检。
     </div></div>
     <h3 id="retrieve-58">性能：一次批量 embedding + 6 线程并发</h3>
     <div class="diagram">
@@ -819,7 +817,7 @@ foreshadow:f07:0             75   foreshadow</pre>
         <span class="arw"></span>
         <div class="node gate">embed_queries（一次批量）<small>1 次 HTTP 往返</small></div>
         <span class="arw"></span>
-        <div class="node soft">ThreadPoolExecutor(6)<small>并发 search_by_embedding</small></div>
+        <div class="node soft">ThreadPoolExecutor(6)<small>并发 search_dense_leg<br>（稀疏开启时同池再提交 search_sparse_leg）</small></div>
         <span class="arw"></span>
         <div class="node">每条各取 top-3<small>PER_SUBQUERY_TOP_K</small></div>
       </div>
@@ -832,9 +830,9 @@ foreshadow:f07:0             75   foreshadow</pre>
     <p>
       降级路径也存在：<code>rag</code> 不支持批量接口（测试替身）或 embedding 不可用时，退回逐条
       <code>search()</code>，此时拿不到第二条返回值，<code>stats</code> 里<b>不填该字段</b>
-      （而不是填 0 假装测到了）。
+      （填 0 会掩盖"没测到"这件事）。
     </p>
-    <h3 id="retrieve-59">合并：名次轮转，不是全局排序</h3>
+    <h3 id="retrieve-59">合并：按名次轮转</h3>
     <p>这是分条召回真正兑现价值的地方，也是最容易被"优化"坏的地方。</p>
     <div class="vs">
       <div class="card warn">
@@ -870,7 +868,7 @@ Q4: [<span class="s">0.67</span>, 0.36]
       去重键按优先级取：
     </p>
     <ul class="clean">
-      <li>优先「<code>source</code> + 该来源的主键 + <code>chunk_index</code>」：<code>chapter:c05:chunk=2</code></li>
+      <li>优先「<code>source</code> + 该来源主键 + <code>chunk_index</code>」：<code>chapter:chapter_id=c05:chunk=2</code></li>
       <li>主键字段依次尝试：<code>chapter_id / doc_id / character_id / foreshadow_id / field / id</code></li>
       <li>都拿不到时回落到<b>内容前缀 120 字</b></li>
     </ul>
@@ -917,7 +915,7 @@ Q4: [<span class="s">0.67</span>, 0.36]
     </div></div>
     <div class="note w"><b>⚠ 阈值会静默丢掉一批块</b><div>
       这是最容易被忽视的一点：作者看到的引用卡条数与"检索到的条数"对不上，
-      因为中间有一批被阈值筛掉了。设计意图是让 <code>search_by_embedding</code>
+      因为中间有一批被阈值筛掉了。设计意图是让 <code>search_dense_leg</code>
       同时返回「阈值后的命中」和「阈值前的命中数」，从而区分
       <b>"向量库里没有"</b>（该重建索引了）和<b>"有但不够像"</b>（阈值太严要调）。<br>
       <b>但实测：当前实现 <code>return hits, len(hits)</code> 的两个值都是阈值<i>之后</i>的</b>——
@@ -986,7 +984,7 @@ Q4: [<span class="s">0.67</span>, 0.36]
     </p>
     <h3 id="scope-71">为什么 `rag_search_direct` 绕开工具封装</h3>
     <p>
-      章纲阶段预取的「本章写作资料」走 <code>rag_search_direct</code> 而不是 LangGraph 的
+      章纲阶段预取的「本章写作资料」走 <code>rag_search_direct</code>，绕开 LangGraph 的
       <code>rag_search</code> 工具。原因是后者依赖 prebuilt agent 自动注入
       <code>tool_call_id</code> / <code>config</code>，在节点内手动 <code>invoke</code> 会因缺少
       <code>InjectedToolCallId</code> 而抛错。
@@ -1056,7 +1054,7 @@ info = {
   "dropped_queries": ["陈教授 配角", "阿枝 配角", "林伯 配角", ... ],
 }</pre>
     <div class="note w"><b>⚠ 这里有 9 个角色本次没被检索</b><div>
-      <code>dropped = 9</code> 会被写进检索账目和日志。这是<b>漏检信号，不是设计</b>——
+      <code>dropped = 9</code> 会被写进检索账目和日志，属于<b>漏检信号</b>，需要处理——
       如果本章其实需要某个 off_stage 角色的设定，正确做法是把他的名字写进章纲或门禁必写点，
       让他进入 <code>on_stage</code>。<br>
       <small>另注：判定用的是<b>子串包含</b>，所以名字很短的角色（如单字名）容易被误判为出场。</small>
@@ -1080,7 +1078,9 @@ info = {
     <p>域过滤 <code>scope="story"</code> 先被翻译成 Qdrant Filter：</p>
     <pre>_scope_filter("story")  →  {"source": ["chapter", "foreshadow"]}
                            →  Filter(must=[FieldCondition(key="source", match=MatchAny(any=[...]))])</pre>
-    <p>然后 <code>ThreadPoolExecutor(max_workers=6)</code> 并行执行 6 次 <code>search_by_embedding(vec_i, 3, flt)</code>：</p>
+    <p>然后 <code>ThreadPoolExecutor(max_workers=6)</code> 并行执行 6 次 <code>rag.search_dense_leg(vec_i, leg_k, flt)</code>
+      （<code>leg_k = PER_SUBQUERY_TOP_K = 3</code>；稀疏路开启时为 <code>max(3×3, _SPARSE_LEG_K=10)</code>）。
+      注意写章路径<b>不走</b> <code>search_by_embedding</code>——那个函数会把两路串行化，代价更大：</p>
     <div class="tbl-wrap">
       <table>
         <thead><tr><th>子查询</th><th>向量库返回（按分数降序，top-3）</th><th>0.45 阈值后</th></tr></thead>
@@ -1112,14 +1112,14 @@ info = {
 stats = {"raw_hits": 14, "kept_hits": 14, "duplicates": 6}
 sources(合并后) = {"chapter": 6, "foreshadow": 2}</pre>
     <div class="note i"><b>💡 注意第 6 条：c07#0 只有 0.52 分，却排在 c08#0（0.63）前面</b><div>
-      这正是<b>轮转而非全局排序</b>的直接体现：c07#0 是 Q0 的第 <b>2</b> 名，c08#0 是 Q3 的第 <b>2</b> 名，
+      这正是<b>名次轮转</b>的直接体现：c07#0 是 Q0 的第 <b>2</b> 名，c08#0 是 Q3 的第 <b>2</b> 名，
       按 <code>(名次, 子查询序号)</code> 排序，Q0 先于 Q3。
       牺牲了一点绝对分数，换来的是<b>每条子查询都至少贡献自己的第一名</b>。
       代价与替代方案见第 17 节。
     </div></div>
     <div class="note d"><b>⚠ 账目字段的两个命名陷阱（实测确认）</b><div>
       · <code>raw_hits</code> 的 docstring 写的是「阈值<b>前</b>的命中数」，
-        但 <code>search_by_embedding</code> 实际 <code>return hits, len(hits)</code> ——
+        但 <code>search_dense_leg</code> 实际 <code>return hits, len(hits)</code> ——
         <b>阈值已经过滤过了</b>，所以 <code>raw_hits</code> 恒等于 <code>kept_hits</code>（本例都是 14）。
         想看"阈值砍掉了多少"目前<b>拿不到</b>。<br>
       · <code>duplicates</code> 的公式是 <code>kept_hits − merged</code>（本例 14−8=6），
@@ -1161,9 +1161,11 @@ sources(合并后) = {"chapter": 6, "foreshadow": 2}</pre>
     <pre>=== 相关检索结果 ===
 [1] (相关度: 0.71) [第12章 雨夜]【第12章 雨夜】素世与陆时在雨中对峙，陆时终于说出三年前事故的真相。
 出场：素世、陆时雨下了整夜。素世站在便利店门口，看着对街那盏忽明忽暗的灯。……
-[2] (相关度: 0.79) [伏笔·f07]伏笔-f07: 陆时随身带的旧钥匙扣，来自三年前那场事故 (状态: pending, 埋于: 第7章)
-[3] (相关度: 0.74) [伏笔·f11]伏笔-f11: 苏晚的左手手腕有一道疤 (状态: pending, 埋于: 第10章)
+[2] (相关度: 0.79) [伏笔·f07]伏笔-f07: 陆时随身带的旧钥匙扣，来自三年前那场事故
+[3] (相关度: 0.74) [伏笔·f11]伏笔-f11: 苏晚的左手手腕有一道疤
 ……</pre>
+    <p><small>伏笔的「状态」与「埋于第 N 章」<b>只在 payload 里</b>，不进文本——它们永远匹配不到任何查询，
+    却会让每次状态变更都必须重新 embedding。引用卡上的 <code>[伏笔·f07]</code> 标签才是它们的展示位置。</small></p>
     <p><small>注意第 1 条出现了两次章节标题：一次来自引用卡的 <code>[出处]</code> 前缀（<code>outline_title</code>），
     一次来自块自身的入库前缀。这是真实行为，不影响检索。</small></p>
     <h3 id="queryflow-84">第 7 步 · 第二路与第三路检索</h3>
@@ -1230,7 +1232,7 @@ sources(合并后) = {"chapter": 6, "foreshadow": 2}</pre>
   "dropped": 9,                         <span class="c"># 触顶未检索 —— 漏检信号</span>
   "dropped_queries": ["陈教授 配角", "阿枝 配角", ...],
   "document": {"scope":"document", "queries":6, "merged":3, "min_score":0.45, ...},
-  "direct": {"world": 6, "character": 12, "prev_tail_chars": 1200}
+  "direct": {"world": 6, "characters": 12, "prev_tail_chars": 1200}
 }</pre>
     <h3 id="queryflow-87">全流程一览</h3>
     <div class="diagram">
@@ -1297,7 +1299,7 @@ sources(合并后) = {"chapter": 6, "foreshadow": 2}</pre>
     <p>所以写作 prompt 的静态部分是有界的，可以心算出来。这就是<b>不能随便调大块长</b>的原因。</p>
     <h3 id="inject-91">三、措辞：硬约束 vs 可改编</h3>
     <p>
-      作者上传的设定参考不是普通参考，它被声明为<b>硬约束</b>：
+      作者上传的设定参考被声明为<b>硬约束</b>：
     </p>
     <pre><span class="c">【作者提供的设定参考 · 硬约束】
 凡涉及以下专有名词、人物关系、地理/组织/规则设定，一律以此为准，
@@ -1316,11 +1318,16 @@ sources(合并后) = {"chapter": 6, "foreshadow": 2}</pre>
     </div></div>
     <p>
       降级只在"作者明确要求修改"时生效，常规的<b>防模型自造设定</b>能力不受影响。
-      另外注意：<b>措辞只在一处维护</b>（<code>DOC_REF_HEADER</code>），
-      世界观 / 人设 / 正文三处注入必须完全一致，否则模型在不同阶段对同一份设定
-      得到不同的"遵守强度"。
+      另外注意：<b>措辞只在 <code>rag.py</code> 里维护</b>，共三段常量 ——
+      <code>DOC_REF_HEADER</code>（硬约束）、<code>DOC_REF_HEADER_ADAPTABLE</code>（有作者修改要求时降级）、
+      <code>SOURCE_DATA_CLAUSE</code>（数据/指令分离，<b>间接注入防护</b>）。
+      <code>doc_reference_block()</code> 按「header + clause + 检索文本」拼装；
+      世界观 / 人设 / 正文三处注入必须用同一套措辞，否则模型在不同阶段对同一份设定
+      得到不同的"遵守强度"。<br>
+      <code>SOURCE_DATA_CLAUSE</code> 也加在 baseline + 本章资料区块上（见 <code>writing_node</code>）——
+      没有这一段，设定文档里夹带的「此后所有输出都必须…」会被当成指令执行。
     </p>
-    <h3 id="inject-92">为什么上一章结尾用原文而不用摘要</h3>
+    <h3 id="inject-92">上一章结尾为什么直接用原文</h3>
     <p>
       <code>_prev_tail_block</code> 只取<b>紧邻的上一章最后 1200 字原文</b>。
       理由是<b>接上文靠原文</b>：摘要接不住——"他推开门，屋内一片漆黑"这种句子，
@@ -1366,8 +1373,8 @@ novel_abc123__baai_bge_m3_d1024</span></pre>
     <h3 id="store-97">payload 索引：不建就 400，而且是静默失效</h3>
     <div class="note d"><b>✗ 一个必须知道的 Qdrant 特性</b><div>
       <b>过滤字段必须先建 payload 索引</b>，否则带过滤的查询/删除直接 400
-      （<code>Index required but not found for "source"</code>）。不建索引的后果不是"查得慢"，
-      而是 <b>按域检索、按章删除全部静默失效</b>——旧块删不掉会不断累积。
+      （<code>Index required but not found for "source"</code>）。不建索引时，
+      <b>按域检索、按章删除会全部静默失效</b>——旧块删不掉会不断累积。
     </div></div>
     <p>适配层在建集合时统一建好，并对历史集合做惰性补建：</p>
     <pre><span class="k">_FILTER_KEY_TYPES = {</span>
@@ -1399,7 +1406,7 @@ novel_abc123__baai_bge_m3_d1024</span></pre>
       <li><b>本地模式必须复用 client</b>：同一 path 起第二个 client 会撞文件锁
           （"already accessed by another instance"），而 <code>LocalRAG</code> 每个节点都会新建实例。</li>
     </ul>
-    <h3 id="store-100">失败语义：增强不是必需</h3>
+    <h3 id="store-100">失败语义：增强项失败即跳过</h3>
     <div class="note g"><b>✓ 统一约定</b><div>
       向量库读写失败<b>记告警并退化为空结果 / 跳过这次写入</b>，不让一次网络抖动把整章写作打断
       （与 <code>embeddings.embed_texts</code> 的处理一致）。
@@ -1499,8 +1506,8 @@ novel_abc123__baai_bge_m3_d1024</span></pre>
         <div class="txt">
           <b>② 保底检索</b>（<code>rag_retrieve_hits_with_stats</code>）——
           构造 ≤6 条子查询（章纲 → 伏笔 → 出场角色 → 其他角色），<b>一次批量 embedding</b> +
-          6 线程并发检索，每条取 top-3，<b>轮转合并</b>去重后取<b>前 8 条</b>，
-          施加 0.45 阈值，再做最近 5 章的时间偏置。
+          6 线程并发检索，每条取 top-3，<b>每条各自先过 0.45 阈值</b>，再<b>轮转合并</b>去重取<b>前 8 条</b>，
+          最后做最近 5 章的时间偏置。
         </div>
       </li>
       <li class="alt">
@@ -1587,6 +1594,19 @@ novel_abc123__baai_bge_m3_d1024</span></pre>
         </tbody>
       </table>
     </div>
+    <h3 id="timeline-109">「重跑」之前还会再清一次旧向量</h3>
+    <div class="note d"><b>✗ 不清会怎样（实测）</b><div>
+      <code>POST /projects/{id}/rerun</code> 会把 <code>from_chapter_index</code> 起的各章<b>整章重写</b>。
+      但重写前那一版的旧向量还留在库里，于是检索把它当成"前情"注入本次写作——
+      更隐蔽的是：世界观 / 人物 / 大纲一并改掉后重跑全书，<b>作者已经删掉的设定</b>
+      （实测：已从世界观移除的「校对局」）照样被召回，新稿又把它写了回来。<br>
+      所以 <code>purge_chapter_vectors()</code> 在图启动前先扫集合，按
+      <code>source="chapter"</code> + <code>chapter_index ≥ from_chapter_index</code> 精确删点，
+      <b>再由定稿路径重新入库</b>。<br>
+      刻意<b>不枚举 <code>state["chapters"]</code></b>：<code>GET /state</code> 默认就不返回它，
+      照着 State 删会一个都删不掉、且没有任何报错——向量库才是"到底存了哪些旧块"的唯一事实来源。
+      没有 <code>chapter_index</code> 的历史点按 0 处理（宁可多删）。
+    </div></div>
   </div>
 </section>
 <!-- ===================== 14 FAQ ===================== -->
@@ -1625,7 +1645,7 @@ novel_abc123__baai_bge_m3_d1024</span></pre>
       所以 0.5 意味着"明确比噪声像"。数字本身<b>不能跨模型比较</b>，换了 embedding 模型要重新标定。</p>
     </details>
     <details>
-      <summary>为什么角色和世界观不靠检索？</summary>
+      <summary>为什么角色和世界观走直塞？</summary>
       <p class="a">因为它们是<b>有界</b>的（角色 ≤12、世界观 6 字段），注入成本可控，而且<b>字段必须完整</b>——
       直塞能保证"说话方式""外貌"这些字段一定在（检索常常召不到）。
       让它们再进一次检索只会让同一份设定在 prompt 里出现两份，模型分不清哪份权威。</p>
@@ -1655,10 +1675,12 @@ novel_abc123__baai_bge_m3_d1024</span></pre>
       所以一条"第 1 名 0.45"的子查询会抢在"第 2 名 0.72"之前。这是明确的已知短板，见第 17 节。</p>
     </details>
     <details>
-      <summary>为什么没有混合检索（BM25 + 向量）？</summary>
-      <p class="a">确实缺一块能力：专有名词的精确匹配。向量检索对"叫错一个字"不敏感，
-      而人名、专有名词恰恰要求精确。理想形态是 <code>score = α·dense + β·sparse</code> 融合，
-      这是当前最值得补的一块。</p>
+      <summary>为什么不用 <code>score = α·dense + β·sparse</code> 的加权融合？</summary>
+      <p class="a">稀疏路已经补上了（<code>RAG_SPARSE_ENABLED</code>，默认关，见第 19 节），
+      但刻意<b>只做 RRF 重排、不参与召回</b>。原因是加权融合在本系统里会<b>静默失效</b>：
+      阈值 0.45、引用卡「相关度」、检索账目三处都建立在「score 就是余弦相似度」这条不变式上。
+      实测 Qdrant 的 RRF 取 k=1 时，两路都排第 1 才 1.000、仅排第 2 就是 0.444——
+      拿 0.45 去卡，8 条命中只剩 1 条。所以补的这一路只重排，不扩展候选集。</p>
     </details>
     <details>
       <summary>"重建索引"会不会把我上传的设定参考删掉？</summary>
@@ -1680,14 +1702,15 @@ novel_abc123__baai_bge_m3_d1024</span></pre>
     <div class="eyebrow">17 · Trade-offs</div>
     <h2 id="tradeoff">已知短板与设计权衡</h2>
     <p class="lead">
-      这套设计不是"最优检索系统"，而是<b>在长篇中文创作这个具体场景下，把几个致命故障修掉之后的产物</b>。
+      这套设计的目标很具体：<b>在长篇中文创作这个场景下，把几个致命故障修掉</b>。
       诚实地列出短板，比宣称完备更有用。
     </p>
     <div class="grid g2">
       <div class="card warn">
-        <span class="ico">⚖️</span><h4 id="tradeoff-111">没有混合检索</h4>
-        <p>纯向量。专有名词的精确匹配能力缺失——向量对错字不敏感，而人名/地名恰恰要求精确。
-        补法是引入 BM25 类稀疏检索做加权融合。</p>
+        <span class="ico">⚖️</span><h4 id="tradeoff-111">稀疏路只重排，不参与召回</h4>
+        <p>BM25 路已实现（<code>RAG_SPARSE_ENABLED</code>，默认关），但刻意只用 RRF 重排：
+        语义不像的块仍然由 <code>rag_min_score</code> 挡住。代价是"一个字之差的专有名词"
+        只能靠稠密路先把它捞进候选集，才谈得上被顶上来——真正的加权融合要等跨标度的分数归一化方案。</p>
       </div>
       <div class="card warn">
         <span class="ico">⚖️</span><h4 id="tradeoff-112">没有真正的 rerank</h4>
@@ -1696,7 +1719,7 @@ novel_abc123__baai_bge_m3_d1024</span></pre>
       </div>
       <div class="card warn">
         <span class="ico">⚖️</span><h4 id="tradeoff-113">子查询上限是硬编码的</h4>
-        <p><code>MAX_SUBQUERIES = 6</code> 不是自适应预算。角色多的项目必然触发
+        <p><code>MAX_SUBQUERIES = 6</code> 是硬编码上限，不随预算自适应。角色多的项目必然触发
         <code>dropped</code>。虽然记账了，但更好的做法是按<b>可用时间预算</b>动态决定条数。</p>
       </div>
       <div class="card warn">
@@ -1710,16 +1733,18 @@ novel_abc123__baai_bge_m3_d1024</span></pre>
         冷启动后会产生一批 embedding 请求。</p>
       </div>
       <div class="card warn">
-        <span class="ico">⚖️</span><h4 id="tradeoff-116">检索没有内容级安全过滤</h4>
-        <p>向量库是"增强"不是"必需"，失败的降级路径较多。这是可用性的选择，
-        但也意味着<b>注入 prompt 的文本没有任何内容审查</b>。</p>
+        <span class="ico">⚖️</span><h4 id="tradeoff-116">间接注入防护有，内容审查默认关</h4>
+        <p>注入侧已有 <code>SOURCE_DATA_CLAUSE</code>（"资料而非指令"）无条件兜底；
+        定稿入索引前也有 P5 合规闸门（<code>compliance_enabled</code>，<b>默认 false</b>）。
+        所以短板是明确的：<b>作者自己上传的设定参考文档</b>没有内容审查，
+        一旦文档里写了指令性语句，靠的只有那条数据/指令分离声明。</p>
       </div>
       <div class="card warn">
         <span class="ico">⚖️</span><h4 id="tradeoff-117">两个账目字段名不副实（实测）</h4>
         <p><code>raw_hits</code> 声称是「阈值前命中数」，实际是<b>阈值后</b>（恒等于 <code>kept_hits</code>）；
         <code>duplicates</code> 实为「候选未入选数」，真去重与被 <code>k</code> 截断混在一起。
         两者都已在<a href="#queryflow">第 11 节</a>标注，<b>读账目时不要按字面理解</b>。
-        修法很小：让 <code>search_by_embedding</code> 在过滤前先记一次 <code>len(hits)</code>。</p>
+        修法很小：让 <code>search_dense_leg</code> 在过滤前先记一次 <code>len(hits)</code>。</p>
       </div>
     </div>
     <h3 id="tradeoff-118">但有几件事是<b>已经做对</b>的，值得强调</h3>
@@ -1764,6 +1789,9 @@ novel_abc123__baai_bge_m3_d1024</span></pre>
           <tr><td><code>CONTENT_BUDGET</code></td><td><code>379</code></td><td><code>= 500 − 120 − 1</code>，正文实际切分尺寸</td></tr>
           <tr><td><code>ENRICH_MAX_NAMES</code></td><td><code>8</code></td><td>前缀最多列几个角色名</td></tr>
           <tr><td><code>MAX_SUBQUERIES</code></td><td><code>6</code></td><td>单次检索子查询条数上限（保序截断）</td></tr>
+          <tr><td><code>MAX_ALIASES_PER_QUERY</code></td><td><code>3</code></td><td>每条角色子查询最多带几个别名（<b>合并进同一条</b>，不各自成条）</td></tr>
+          <tr><td><code>_SPARSE_LEG_K</code></td><td><code>10</code></td><td>稀疏路每条子查询的候选数（RRF 重排用，默认关）</td></tr>
+          <tr><td><code>RAG_RRF_K</code></td><td><code>60</code></td><td>RRF 平滑常数；只影响分数量级、不影响排序，不对外暴露</td></tr>
           <tr><td><code>PER_SUBQUERY_TOP_K</code></td><td><code>3</code></td><td>每条子查询各取多少（合并按名次轮转，不必多取）</td></tr>
           <tr><td><code>MAX_FORESHADOW_SUBQUERIES</code></td><td><code>2</code></td><td>给未回收伏笔<b>固定</b>预留的名额</td></tr>
           <tr><td><code>_SEARCH_WORKERS</code></td><td><code>6</code></td><td>分条召回并发度（远端有限流，不宜过大）</td></tr>
@@ -1810,7 +1838,14 @@ novel_abc123__baai_bge_m3_d1024</span></pre>
           <tr>
             <td><span class="path">app/core/nodes.py</span></td>
             <td>写作节点：调用三路检索、组装 prompt、下发引用卡与账目、定稿索引</td>
-            <td><code>writing_node</code> <code>_gather_chapter_research</code> <code>_plan_chapter_lookups</code> <code>_index_approved_chapter</code> <code>_prev_tail_block</code> <code>_world_block</code> <code>_character_block</code></td>
+            <td><code>writing_node</code> <code>_gather_chapter_research</code> <code>_plan_chapter_lookups</code> <code>_index_approved_chapter</code></td>
+          </tr>
+          <tr>
+            <td><span class="path">app/core/prompts.py</span></td>
+            <td>直塞区块的构造：世界观全量、角色档案、上一章结尾原文、三处注入共用措辞</td>
+            <td><code>_world_block</code> <code>_character_block</code> <code>_prev_tail_block</code>
+                <code>_direct_counts</code> <code>MAX_WORLD_FIELD_CHARS</code>
+                <code>MAX_CHAR_PROFILE_CHARS</code> <code>PREV_TAIL_CHARS</code></td>
           </tr>
           <tr>
             <td><span class="path">app/api/routers/documents.py</span></td>
@@ -1824,8 +1859,8 @@ novel_abc123__baai_bge_m3_d1024</span></pre>
           </tr>
           <tr>
             <td><span class="path">tests/</span></td>
-            <td>切块不变量、注入截断耦合、检索统计、Qdrant 适配、索引幂等</td>
-            <td><code>test_chunking_enrichment.py</code> <code>test_inject_truncation_coupling.py</code> <code>test_rag_retrieval_stats.py</code> <code>test_qdrant_store.py</code> <code>test_index_idempotent.py</code></td>
+            <td>切块不变量、注入截断耦合、检索统计、Qdrant 适配、索引幂等、别名归一化、引用卡、稀疏路、重跑清向量</td>
+            <td><code>test_chunking_enrichment.py</code> <code>test_inject_truncation_coupling.py</code> <code>test_rag_retrieval_stats.py</code> <code>test_qdrant_store.py</code> <code>test_index_idempotent.py</code> <code>test_entity_alias.py</code> <code>test_citations.py</code> <code>test_sparse.py</code> <code>test_rerun_purge_vectors.py</code></td>
           </tr>
         </tbody>
       </table>
@@ -1833,9 +1868,9 @@ novel_abc123__baai_bge_m3_d1024</span></pre>
     <h3 id="ref-124">改参数前必读的三条不变量</h3>
     <div class="note d"><b>✗ 动<code>rag.py</code> 前先确认</b><div>
       <b>① 单块 ≤ 注入截断</b>：两者必须是同一个常量。<code>_injectable</code> 引用 <code>CHUNK_SIZE</code>，二者恒等，
-      因此单块永不触发截断。<b>不是"配出来的巧合"。</b><br><br>
+      因此单块永不触发截断。<b>二者恒等由结构保证，不靠配数值凑出来。</b><br><br>
       <b>② 原文零丢失</b>：所有字符至少出现在一个块里，<b>且不要按"文本相同"去重</b>。<br><br>
-      <b>③ 块几何稳定</b>：<code>_clip_prefix</code> 用<b>固定上限</b>而非自适应长度，
+      <b>③ 块几何稳定</b>：<code>_clip_prefix</code> 用<b>固定上限</b>，不采用自适应长度，
       前缀长度因此不随内容漂移，切分位置只取决于正文——这是确定性 id 与陈旧块清理能正确工作的前提。
     </div></div>
   </div>
@@ -1868,7 +1903,7 @@ novel_abc123__baai_bge_m3_d1024</span></pre>
         <p><b>不擅长</b>：同义、改写（稀疏检索的天花板）</p>
       </div>
     </div>
-    <p>所以是<b>补充，不是替代</b>。同义 / 改写这条路永远要靠稠密向量。</p>
+    <p>所以它只起<b>补充</b>作用，替代不了稠密向量。同义 / 改写这条路永远要靠稠密向量。</p>
     <h3 id="sparse-129">原料从哪来：与稠密向量<b>同源</b></h3>
     <p>
       这是整套设计最省事的一点——<b>不需要新增任何数据源</b>。Qdrant 侧不存在「稀疏 embedding 服务」
@@ -1936,7 +1971,7 @@ written = self.collection.add(
       而 2 字人名（「素世」「爱音」「陆时」）是本系统最高频的查询。
       它 0.98 MB / 1.1 ms 的指标很漂亮，但对核心场景不成立。
     </div></div>
-    <h4 id="sparse-132">空白是<b>字段分隔符</b>，不是字符</h4>
+    <h4 id="sparse-132">空白充当<b>字段分隔符</b></h4>
     <p>
       子查询是「名字 + 身份」拼的（<code>"素世 主角"</code>）。若先 <code>join</code> 再滑窗，
       字段边界会造出<b>跨边界的伪 bigram</b>——这是实测查出来的真实缺陷：
@@ -2000,7 +2035,7 @@ written = self.collection.add(
     <pre><span class="c"># app/core/rag.py · _rrf_merge() —— 纯函数，在 dense_hits 内重排</span>
 fused(d) = Σ_路  1 / (K + rank_路(d))      <span class="c"># 名次从 1 起，缺该路记 0 分</span>
 排序键  = (-fused, -score, 原下标)          <span class="c"># 三级：完全确定，可复现</span></pre>
-    <div class="note i"><b>💡 为什么 RRF 是首选而不是归一化加权</b><div>
+    <div class="note i"><b>💡 首选 RRF 的理由</b><div>
       两路分数量纲完全不同（余弦 −1~1 对 TF×IDF 0~3.8），加权必须先归一化，
       而分母对本次最高分敏感——某一路偶然出个高分，整路就被压扁。
       <b>RRF 只看名次，天然免疫量纲问题</b>；DBSF 用距离比值，对分数扰动更敏感。
@@ -2076,7 +2111,7 @@ novel_{pid}__{model}_d1024__bm25      <span class="c"># 开启</span></pre>
         <span class="ico">⚠️</span><h4 id="sparse-142">3. TF 无饱和</h4>
         <p>实测公式是<b>纯线性 TF × IDF</b>，没有 BM25 原文的 <code>k1</code> 饱和因子——
         一个词在块里出现 50 次，得分是出现 1 次的 <b>50 倍</b>。
-        连带效应：<code>_enrich_entries</code> 的「相关角色：X」前缀在<b>每块</b>都出现，
+        连带效应：设定块的「相关角色：X」前缀在<b>每块</b>都出现（由 <code>_setting_prefix()</code> 统一拼），
         等于给含该角色的块加了个不受控的恒定 boost。</p>
       </div>
       <div class="card warn">
@@ -2128,7 +2163,7 @@ sparse=True   写 40 块: 333.3 ms  (8.33 ms/块)   <span class="c"># 差异在�
       </table>
     </div>
     <p>
-      两处增幅都<b>不是</b>「算得慢」，而是<b>请求数翻倍</b>：每条子查询从 1 次远程调用变成 2 次
+      两处增幅都来自<b>请求数翻倍</b>：每条子查询从 1 次远程调用变成 2 次
       （稠密 + 稀疏），本地模式下这两次还会在同一把存储锁上排队。
     </p>
     <h4 id="sparse-148">④ 一次踩坑的实测：并发化反而更慢</h4>
@@ -2186,7 +2221,7 @@ sparse=True   写 40 块: 333.3 ms  (8.33 ms/块)   <span class="c"># 差异在�
     <div class="note w"><b>⚠ 启用前必须知道的一件事：老数据在稀疏路等于不存在</b><div>
       点没有 <code>bm25</code> 向量 → 稀疏点积恒为 0 → <b>永远进不了任何一路的候选</b>。
       若只给新数据加稀疏，融合时老章节只能靠稠密吃名次，<b>偏差方向固定（新章节占优）</b>。<br>
-      本实现选择<b>换集合名 + 重嵌入</b>而不是补写。其中<b>唯一必须搬的是 document 域</b>
+      本实现选择<b>换集合名 + 重嵌入</b>，放弃补写。其中<b>唯一必须搬的是 document 域</b>
       （作者上传的设定参考）——它的原文<b>不留存</b>，只存在于旧集合 payload 里，
       <code>reindex</code> 对它是故意「不删不重嵌」的。章节 / 设定 / 伏笔都能重跑。
     </div></div>
@@ -2229,7 +2264,7 @@ sparse=True   写 40 块: 333.3 ms  (8.33 ms/块)   <span class="c"># 差异在�
     </div>
     <div class="note i"><b>💡 这一路教给我们的事</b><div>
       教科书式的混合检索（两路分数归一化后加权）在这套系统里<b>会静默失效</b>——
-      不是因为实现错了，而是因为<b>它假设两路分数量纲可比</b>，而本系统的
+      根源在<b>它假设两路分数量纲可比</b>，实现本身没有错，而本系统的
       <code>rag_min_score</code>、引用卡「相关度」、检索账目三处都建立在「分数是余弦」这个前提上。
       引入第二条检索路时，必须先确认<b>下游对分数的假设有没有被写死</b>。
     </div></div>
@@ -2242,8 +2277,7 @@ sparse=True   写 40 块: 333.3 ms  (8.33 ms/块)   <span class="c"># 差异在�
     <h2 id="structured-first">能结构化的，别丢给向量检索</h2>
     <p class="lead">
       一条容易被当成教条的原则：<b>能结构化存储与过滤的实体，尽量不要塞进向量</b>。
-      但真正该做的不是「把结构化的都搬走」——
-      而是<b>「把永不出现在查询里的结构化搬走」</b>。这一节记录按这条判据做的审计与修复。
+      但真正该做的只有一件事：<b>把永不出现在查询里的结构化搬走</b>。这一节记录按这条判据做的审计与修复。
     </p>
     <h3 id="structured-first-155">判据：它会出现在查询里吗</h3>
     <div class="tbl-wrap">
@@ -2348,12 +2382,12 @@ sparse=True   写 40 块: 333.3 ms  (8.33 ms/块)   <span class="c"># 差异在�
     </p>
     <div class="note d"><b>✗ 为什么测试没抓住</b><div>
       当时的用例只断言了别名部分（<code>别名=…</code> 存在），没断言字段值本身。
-      教训：<b>断言要检查「内容对不对」，而不只是「字段在不在」</b>。
+      教训：<b>断言要检查「内容对不对」，只查「字段在不在」不够</b>。
       现在 <code>_char_entries</code> 带上 <code>raw</code> 原字典，并有两条用例锁死它。
     </div></div>
     <h3 id="structured-first-163">什么时候该破例</h3>
     <p>
-      判据不是「结构化 vs 非结构化」，而是「<b>查询会不会用到它</b>」。
+      判据是「<b>查询会不会用到它</b>」。
       章纲 <code>summary</code> 是结构化的（存在 State 里），但<b>它就是查询本身</b>，
       所以必须留在向量里；身份前缀同理。反过来 <code>status</code> 存在 State 里、
       却从不出现在查询里，那就该走 payload。

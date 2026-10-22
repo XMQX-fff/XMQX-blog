@@ -6,7 +6,7 @@ outline: [2, 3]
 
 # nano-graphrag 源码深度解析
 
-<p class="mini">v0.0.8.2 · <a href="https://github.com/gusye1234/nano-graphrag">gusye1234/nano-graphrag</a> 源码全量阅读笔记</p>
+<p class="mini">v0.0.8.2 · <a href="https://github.com/gusye1234/nano-graphrag">gusye1234/nano-graphrag</a> 源码全量阅读笔记 · <a href="/graphrag/nano-graphrag-source-analysis-mindmap">思维脑图</a></p>
 <div class="stat-row"><span class="stat-chip">核心 ~2900 行</span> <span class="stat-chip">3 种检索模式</span> <span class="stat-chip">可插拔存储</span></div>
 <section id="s1">
   <div class="sec-head"><span class="sec-num">01</span><h2 id="s1">项目概览与设计哲学</h2></div>
@@ -14,7 +14,7 @@ outline: [2, 3]
   <div class="grid3">
     <div class="feat"><div class="ico">🧬</div><h4 id="s1-1">小而完整</h4><p>剔除官方实现的复杂基建（配置系统、流水线框架、CLI），只保留「文档→知识图谱→社区→检索」这条主干，每一行都可读可改。</p></div>
     <div class="feat"><div class="ico">🔌</div><h4 id="s1-2">全组件可插拔</h4><p>LLM、Embedding、向量库、图存储、KV 存储、分块函数、实体抽取器全部通过 dataclass 字段注入，换组件只改一个参数。</p></div>
-    <div class="feat"><div class="ico">⚡</div><h4 id="s1-3">异步优先</h4><p>全链路 asyncio，LLM 并发抽取、嵌入批量并行，用自研轻量限流器（而非 Semaphore）避免 nest_asyncio 依赖。</p></div>
+    <div class="feat"><div class="ico">⚡</div><h4 id="s1-3">异步优先</h4><p>全链路 asyncio，LLM 并发抽取、嵌入批量并行，用自研轻量限流器替代 Semaphore，避免 nest_asyncio 依赖。</p></div>
     <div class="feat"><div class="ico">💾</div><h4 id="s1-4">零外部服务依赖</h4><p>默认组合 = JSON 文件 + NetworkX + nano-vectordb，pip install 后无需数据库即可跑通全部功能。</p></div>
     <div class="feat"><div class="ico">🔁</div><h4 id="s1-5">幂等增量写入</h4><p>文档/分块均以 MD5 作为主键，重复插入自动跳过；LLM 响应落盘缓存，相同请求不再计费。</p></div>
     <div class="feat"><div class="ico">🎯</div><h4 id="s1-6">预算感知</h4><p>所有上下文组装都以 token 预算为硬约束，逐项按重要性（度数、权重、评分）排序后截断，保证不超模型窗口。</p></div>
@@ -173,7 +173,7 @@ for start in range(0, len(tokens), max_token_size - overlap_token_size):
   <p><strong>chunking_by_seperators</strong>：先用 <code class="inline">SeparatorSplitter</code> 按多级分隔符（段落 → 换行 → 中英文句号/感叹/问号 → 空白，见 prompt.py 的 default_text_separator）切出原子片段，再贪心合并到 chunk_size，并对相邻 chunk 强制注入 overlap——切点落在自然边界，对下游抽取更友好。分隔符本身也被 encode 成 token 序列在 token 空间匹配。</p>
   <h3 id="s5-2">5.2 实体关系抽取 extract_entities</h3>
   <p>这是与 LLM 交互最密集的环节，设计上有四个值得注意的机制：</p>
-  <h4 id="s5-32">① 约定式文本协议（而非 JSON）</h4>
+  <h4 id="s5-32">① 约定式文本协议</h4>
   <p>Prompt 要求 LLM 输出用三种分隔符编码的记录流：</p>
   <pre><span class="s">("entity"&lt;|&gt;"ALEX"&lt;|&gt;"PERSON"&lt;|&gt;"Alex is a character who...")</span><span class="k">##</span>
 <span class="s">("relationship"&lt;|&gt;"ALEX"&lt;|&gt;"TAYLOR"&lt;|&gt;"Alex is affected by..."&lt;|&gt;7)</span><span class="k">&lt;|COMPLETE|&gt;</span>
@@ -294,7 +294,7 @@ maybe_edges[tuple(sorted(k))].extend(v)</pre>
     <tr><td><code class="inline">global_min_community_rating</code></td><td>0</td><td>global 报告评分过滤线</td></tr>
     <tr><td><code class="inline">global_max_token_for_community_report</code></td><td>16384</td><td>global map 分组 / reduce 要点预算</td></tr>
   </table>
-  <p class="muted" style="font-size:13px">设计模式：local 的三路预算 4000+4800+3200 ≈ 12000 tokens，加上实体表与提示词模板正好填满一个 16k 级模型的舒适区——预算是显式工程，不是碰运气。</p>
+  <p class="muted" style="font-size:13px">设计模式：local 的三路预算 4000+4800+3200 ≈ 12000 tokens，加上实体表与提示词模板正好填满一个 16k 级模型的舒适区——预算是显式工程，每一档都有出处。</p>
 </section>
 <section id="s7">
   <div class="sec-head"><span class="sec-num">07</span><h2 id="s7">LLM 调用层 _llm.py</h2></div>
@@ -400,9 +400,9 @@ response = <span class="k">await</span> openai_async_client.chat.completions.cre
     <tr><td>3</td><td><strong>内容寻址（MD5 主键）</strong></td><td>去重、增量、幂等三合一。文档/分块/实体/LLM 缓存四层全部内容寻址，任何一层重放都安全。</td></tr>
     <tr><td>4</td><td><strong>双模型分工</strong></td><td>best_model 做理解密集任务（抽取/报告），cheap_model 做机械压缩（描述摘要）。成本结构上把大头压到可选的贵调用里。</td></tr>
     <tr><td>5</td><td><strong>token 预算显式化</strong></td><td>truncate_list_by_token_size + 排序优先级，每个上下文组装点都有硬预算。模型窗口变化只需调 QueryParam 数字。</td></tr>
-    <tr><td>6</td><td><strong>文本协议优先于 JSON</strong></td><td>抽取用分隔符元组流而非 JSON：抗截断、抗转义灾难、对弱模型宽容；仅在必须结构化处（社区报告、map 要点）强制 JSON + 容错解析兜底。</td></tr>
+    <tr><td>6</td><td><strong>文本协议优先于 JSON</strong></td><td>抽取用分隔符元组流，不用 JSON：抗截断、抗转义灾难、对弱模型宽容；仅在必须结构化处（社区报告、map 要点）强制 JSON + 容错解析兜底。</td></tr>
     <tr><td>7</td><td><strong>社区层级复用</strong></td><td>聚类层级 = 报告生成顺序 = 查询过滤维度；粗社区引用细社区报告，同一层级结构服务索引与检索两端，信息零浪费。</td></tr>
-    <tr><td>8</td><td><strong>自研限流而非 Semaphore</strong></td><td>牺牲一点优雅换取事件循环兼容性（嵌套 loop、Jupyter、子线程场景）；与 always_get_an_event_loop 一起构成「到处能跑」的异步策略。</td></tr>
+    <tr><td>8</td><td><strong>自研限流替代 Semaphore</strong></td><td>牺牲一点优雅换取事件循环兼容性（嵌套 loop、Jupyter、子线程场景）；与 always_get_an_event_loop 一起构成「到处能跑」的异步策略。</td></tr>
   </table>
   <h4 id="s11-71">已知局限</h4>
   <ul class="plain">
@@ -410,7 +410,7 @@ response = <span class="k">await</span> openai_async_client.chat.completions.cre
     <li>covariates（claim 追踪）只有 Prompt 残留，功能未实现。</li>
     <li>NetworkX 全内存模型适合中小图；超大图需换 Neo4j 后端。</li>
     <li>JSON KV 存储整读整写，多 GB 语料时建议换嵌入式数据库实现。</li>
-    <li>node2vec 节点嵌入是预留接口，local 查询实际依赖实体文本向量而非图结构嵌入。</li>
+    <li>node2vec 节点嵌入是预留接口，local 查询实际依赖实体文本向量，用不到图结构嵌入。</li>
   </ul>
 </section>
 <section id="s12">
@@ -425,5 +425,5 @@ response = <span class="k">await</span> openai_async_client.chat.completions.cre
     <div class="step"><h4 id="s12-78">5 分钟 · 跑一遍</h4><p>用 examples/no_openai_key_at_all.py 或接自己的 LLM 跑通 insert + 三种 query，观察 working_dir 下的产物文件——把代码与磁盘形态对上，理解闭环。</p></div>
   </div>
   <div class="note good"><b>一句话总结</b>
-    nano-graphrag 用「可插拔存储抽象 + 内容寻址幂等 + token 预算治理 + 层级社区报告」四根柱子，把微软 GraphRAG 的方法论压缩进一个晚上即可通读的教学级实现（README 口径约 1100 行，实测核心约 2900 行）——它最好的用法不仅是使用，更是当作 GraphRAG 的可执行论文来读。</div>
+    nano-graphrag 用「可插拔存储抽象 + 内容寻址幂等 + token 预算治理 + 层级社区报告」四根柱子，把微软 GraphRAG 的方法论压缩进一个晚上即可通读的教学级实现（README 口径约 1100 行，实测核心约 2900 行）——把它当作 GraphRAG 的可执行论文来读，是最好的用法。</div>
 </section>

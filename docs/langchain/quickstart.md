@@ -67,20 +67,20 @@ print(result["messages"][-1].content_blocks)
 # [{'type': 'text', 'text': '旧金山总是阳光明媚！（示意）', 'id': ...}]
 ```
 
-**名词解释：`agent.invoke` 的入参。** 它接收的是**对状态的更新**
-而不是"用户说的话"。`{"messages": [...]}` 表示往智能体状态的
+**名词解释：`agent.invoke` 的入参。** 它接收的是**对状态的更新**，
+与"用户说的话"是两回事。`{"messages": [...]}` 表示往智能体状态的
 `messages` 键里追加消息——智能体的状态天生带 `messages` 列表（由
 `add_messages` 归约器管理，语义详见[智能体与运行框架](/langchain/agents)）。
 你可以顺便传自定义状态字段的初始值，例如 `{"messages": [...], "user_id": "u1"}`。
 
 ::: warning 返回值结构
-返回值是包含 `messages` 列表的状态字典，而非字符串。
+返回值是包含 `messages` 列表的状态字典。
 获取最终回答须使用 `result["messages"][-1].text`。
 直接输出整个返回值会显示一串 AIMessage / ToolMessage，易被误判为异常。
 :::
 
 工具即普通 Python 函数，**docstring 会成为工具描述传入模型**——
-该字符串的读者是模型而非开发者。参数类型注解同理，模型依赖它生成合法入参。
+该字符串的读者是模型。参数类型注解同理，模型依赖它生成合法入参。
 更多工具细节见[模型·消息·工具](/langchain/components)。
 
 ## 2. 配置模型参数

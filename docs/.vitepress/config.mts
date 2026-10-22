@@ -1,7 +1,8 @@
 import { defineConfig } from 'vitepress'
+import { withMermaid } from 'vitepress-plugin-mermaid'
 import { htmlHeadingsPlugin } from '../../deploy/markdown-it-html-headings'
 
-export default defineConfig({
+export default withMermaid(defineConfig({
   lang: 'zh-CN',
   title: 'XMQX 的博客',
   description: '学习笔记与资料整理：GraphRAG、LangGraph、LangChain、编程、更多资料持续沉淀',
@@ -21,6 +22,7 @@ export default defineConfig({
       { text: 'GraphRAG 学习', link: '/graphrag/' },
       { text: 'LangGraph 学习', link: '/langgraph/' },
       { text: 'LangChain 学习', link: '/langchain/' },
+      { text: 'A2A 协议', link: '/a2a/' },
       { text: 'AgentNovel', link: '/agentnovel/' },
     ],
 
@@ -32,7 +34,9 @@ export default defineConfig({
           items: [
             { text: '概览与学习路线', link: '/graphrag/' },
             { text: '从入门到理解（初学者教程）', link: '/graphrag/nano-graphrag-tutorial' },
+            { text: '从入门到理解 · 思维脑图', link: '/graphrag/nano-graphrag-tutorial-mindmap' },
             { text: '源码深度解析（参考手册）', link: '/graphrag/nano-graphrag-source-analysis' },
+            { text: '源码深度解析 · 思维脑图', link: '/graphrag/nano-graphrag-source-analysis-mindmap' },
           ],
         },
       ],
@@ -67,6 +71,30 @@ export default defineConfig({
           ],
         },
       ],
+      '/a2a/': [
+        {
+          text: 'A2A 协议学习',
+          collapsed: false,
+          items: [
+            { text: '概览与学习路线', link: '/a2a/' },
+            { text: '开篇：为什么需要 A2A', link: '/a2a/why-a2a' },
+            { text: '前置知识准备', link: '/a2a/prerequisites' },
+            { text: '核心认知：什么是 A2A 协议', link: '/a2a/core-concepts' },
+            { text: '核心模型详解', link: '/a2a/data-model' },
+            { text: '标准接口全解析', link: '/a2a/interfaces' },
+            { text: '通信模型：智能体怎么对话', link: '/a2a/communication' },
+            { text: '成熟系统架构拆解', link: '/a2a/architecture' },
+            { text: '全流程调用时序', link: '/a2a/sequence' },
+            { text: '实战 1：最小 A2A Demo', link: '/a2a/hands-on-minimal' },
+            { text: '实战 2：对接 RAG 与工具调用', link: '/a2a/hands-on-rag' },
+            { text: '生产落地：平台必备能力', link: '/a2a/production' },
+            { text: '避坑专题：高频误区', link: '/a2a/pitfalls' },
+            { text: '对比选型', link: '/a2a/comparison' },
+            { text: '收尾：未来方向与资源清单', link: '/a2a/future' },
+            { text: '附录：核心 JSON Schema', link: '/a2a/appendix' },
+          ],
+        },
+      ],
       '/agentnovel/': [
         {
           text: 'AgentNovel 设计文档',
@@ -76,7 +104,6 @@ export default defineConfig({
             { text: '图引擎：LangGraph 设计详解', link: '/agentnovel/graph' },
             { text: '人在回路（HITL）', link: '/agentnovel/hitl' },
             { text: '检索系统（RAG）', link: '/agentnovel/rag' },
-            { text: 'Guardrails 护栏工程', link: '/agentnovel/guardrails' },
             { text: 'Guardrails 实现报告', link: '/agentnovel/guardrails-report' },
             { text: '去 AI 味提示词工程', link: '/agentnovel/deai' },
             { text: '实体归一化（角色别名）', link: '/agentnovel/entity' },
@@ -113,4 +140,12 @@ export default defineConfig({
       copyright: 'Copyright © XMQX',
     },
   },
-})
+
+  mermaid: {
+    // mermaid 的图是浏览器里运行时渲染的，源码写错时构建不会报错，页面却会
+    // 显示一张 "Syntax error in text" 的报错图。suppressErrorRendering 让
+    // mermaid 直接抛错而不是画报错图，错误更早暴露；真正的兜底是构建前
+    // 的 deploy/check-mermaid.mjs，语法有误会直接让构建失败。
+    suppressErrorRendering: true,
+  },
+}))

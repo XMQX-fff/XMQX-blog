@@ -9,7 +9,7 @@ docs/.vitepress/theme/ 下 custom.css、agentnovel.css 里手写的规则撑着�
 
 覆盖两批页面：
   * GraphRAG 两篇（custom.css）
-  * AgentNovel 八篇（agentnovel.css，作用域 .vp-doc .an-doc）
+  * AgentNovel 七篇（agentnovel.css，作用域 .vp-doc .an-doc）
 
 这个脚本在每次构建后跑，漏了直接报出来。
 
@@ -24,10 +24,11 @@ DOCS = Path(sys.argv[1] if len(sys.argv) > 1 else "docs")
 PAGES = [
     DOCS / "graphrag" / "nano-graphrag-tutorial.md",
     DOCS / "graphrag" / "nano-graphrag-source-analysis.md",
+    DOCS / "graphrag" / "nano-graphrag-tutorial-mindmap.md",
+    DOCS / "graphrag" / "nano-graphrag-source-analysis-mindmap.md",
     DOCS / "agentnovel" / "index.md",
     DOCS / "agentnovel" / "graph.md",
     DOCS / "agentnovel" / "rag.md",
-    DOCS / "agentnovel" / "guardrails.md",
     DOCS / "agentnovel" / "guardrails-report.md",
     DOCS / "agentnovel" / "hitl.md",
     DOCS / "agentnovel" / "deai.md",

@@ -6,7 +6,7 @@ outline: [2, 3]
 
 # nano-graphrag 从入门到理解
 
-<p class="mini">一份写给初学者的教程 · 前置要求：会一点 Python，不需要懂 RAG / 图算法</p>
+<p class="mini">一份写给初学者的教程 · 前置要求：会一点 Python，不需要懂 RAG / 图算法 · <a href="/graphrag/nano-graphrag-tutorial-mindmap">思维脑图</a></p>
 <!-- ==================== 第一部分 ==================== -->
 <div class="part">
   <div class="pno">Part 1</div>
@@ -18,15 +18,15 @@ outline: [2, 3]
   <div class="lbody">
     <p>假设你手里有一批公司内部文档，你想让 AI 帮你回答问题。会遇到两类麻烦：</p>
     <div class="box ex"><b class="hd">问题一 · 资料太长，塞不进去</b>
-      你问大模型（LLM）一个关于公司制度的问题，但制度文件有 200 页。模型的<span class="term" title="上下文窗口：模型一次能&quot;看见&quot;的最大文字量，比如 8000 词、128k token"">上下文窗口</span>有限，塞不下，而且直接塞进去又贵又慢。那怎么办？——先帮用户把相关的几段找出来，再让模型只读这几段来回答。这就是下一篇要讲的 RAG。</div>
+      你问大模型（LLM）一个关于公司制度的问题，但制度文件有 200 页。模型的<span class="term" title="上下文窗口：模型一次能&quot;看见&quot;的最大文字量，比如 8000 词、128k token">上下文窗口</span>有限，塞不下，而且直接塞进去又贵又慢。那怎么办？——先帮用户把相关的几段找出来，再让模型只读这几段来回答。这就是下一篇要讲的 RAG。</div>
     <div class="box ex"><b class="hd">问题二 · 问题需要"串起来"看</b>
       看这个具体例子，本文档从头到尾都会用它：<br><br>
       <strong>文档 A</strong>：「小李在杭州的<strong>茶百道</strong>工作，负责新茶饮研发。」<br>
       <strong>文档 B</strong>：「<strong>茶百道</strong>是一家 2008 年成立于成都的奶茶连锁品牌。」<br><br>
       你问：<em>「小李的公司成立于哪一年？」</em><br><br>
-      答案是 2008 年，但必须经过两步：<span class="term" title="跨文档、跨段落需要多次推理才能得到答案"">多跳推理</span>——先由「小李的公司」推出是「茶百道」，再由「茶百道」查到「2008 年」。<strong>单独任何一段文字里都没有完整答案</strong>。如果你的搜索只返回了文档 A，模型就会答"不知道"。</div>
+      答案是 2008 年，但必须经过两步：<span class="term" title="跨文档、跨段落需要多次推理才能得到答案">多跳推理</span>——先由「小李的公司」推出是「茶百道」，再由「茶百道」查到「2008 年」。<strong>单独任何一段文字里都没有完整答案</strong>。如果你的搜索只返回了文档 A，模型就会答"不知道"。</div>
     <div class="box sn"><b class="hd">顺带一提</b>
-      还有第二种问法：<em>「这些文档里的公司整体发展情况如何？」</em>——这需要<strong>通读全部资料做归纳</strong>，同样不是"找几段"能解决的。后面我们会看到 GraphRAG 对这两类问题各给了一套答案。</div>
+      还有第二种问法：<em>「这些文档里的公司整体发展情况如何？」</em>——这需要<strong>通读全部资料做归纳</strong>，光靠"找几段"解决不了。后面我们会看到 GraphRAG 对这两类问题各给了一套答案。</div>
     <div class="box kp"><b class="hd">本课要点</b>
       LLM 有两个短板：①看不见窗口外的资料；②不擅长跨段落串线索。整篇教程要解决的就是这两个短板。</div>
   </div>
@@ -49,8 +49,8 @@ outline: [2, 3]
       <div class="arr">→</div>
       <div class="fbox f4">得到回答<small>模型基于资料作答<br>大幅减少编造</small></div>
     </div>
-    <p>被切成的每一小块叫一个 <strong><span class="term" title="chunk：被切出来的文字片段，RAG 的基本存储单位"">分块（chunk）</span></strong>。为什么按块存，而不是整篇存？因为检索时"粒度"要小——一篇 5000 字的文章里可能只有 200 字和你的问题相关，返回整篇既浪费又会淹没重点。</p>
-    <p>那么"找出最相关的几块"具体怎么实现？这就引出下一课的<span class="term" title="embedding：把文字转换成一串数字（向量），语义相近的文字坐标也相近"">向量检索</span>。</p>
+    <p>被切成的每一小块叫一个 <strong><span class="term" title="chunk：被切出来的文字片段，RAG 的基本存储单位">分块（chunk）</span></strong>。为什么按块存？因为检索时"粒度"要小——一篇 5000 字的文章里可能只有 200 字和你的问题相关，返回整篇既浪费又会淹没重点。</p>
+    <p>那么"找出最相关的几块"具体怎么实现？这就引出下一课的<span class="term" title="embedding：把文字转换成一串数字（向量），语义相近的文字坐标也相近">向量检索</span>。</p>
     <div class="box kp"><b class="hd">本课要点</b>
       RAG = 检索 + 生成。资料先切成 chunk 存起来；提问时找出最相关的几块，连同问题一起给 LLM。它解决了"问题一（资料太长）"，但还没解决"问题二（多跳推理）"。</div>
   </div>
@@ -59,13 +59,13 @@ outline: [2, 3]
   <div class="lhead"><div class="lno">03</div><h3 id="l3">向量检索：让机器"读懂"语义</h3><span class="ldiff">入门</span></div>
   <div class="lbody">
     <p>怎么判断"哪几块和问题相关"？最朴素的办法是关键词匹配——搜"奶茶"就找含"奶茶"的块。但"开奶茶店"和"经营饮品连锁"没有共同关键词，语义上却是近义的。</p>
-    <p><strong><span class="term" title="embedding / 向量化：用一个模型把任意文字映射成固定长度的数字数组"">Embedding（向量化）</span></strong>解决这个问题：用一个专门的模型把文字变成一串数字（一个坐标点），规则是——<strong>意思越接近的文字，坐标离得越近</strong>。</p>
+    <p><strong><span class="term" title="embedding / 向量化：用一个模型把任意文字映射成固定长度的数字数组">Embedding（向量化）</span></strong>解决这个问题：用一个专门的模型把文字变成一串数字（一个坐标点），规则是——<strong>意思越接近的文字，坐标离得越近</strong>。</p>
     <div class="box an"><b class="hd">类比：地图上的城市</b>
       把每段文字想成地图上的一个城市。<br>
       「开奶茶店」和「经营饮品连锁」是两座挨得很近的城市；<br>
       「光伏板清洗」是十万八千里外的另一座城市。<br>
       所谓检索，就是<strong>以"问题"这座城为圆心，找最近的几座城</strong>。</div>
-    <p>存这些坐标的地方叫<span class="term" title="向量数据库：专门存储向量并高效计算&quot;谁离我最近&quot;的数据库"">向量数据库</span>（向量库）。查询时：把问题也转成坐标 → 计算距离 → 返回最近的 top-k 块。距离常用<span class="term" title="余弦相似度：只看两个向量方向是否一致，范围 -1~1，1 为最相似"">余弦相似度</span>衡量。</p>
+    <p>存这些坐标的地方叫<span class="term" title="向量数据库：专门存储向量并高效计算&quot;谁离我最近&quot;的数据库">向量数据库</span>（向量库）。查询时：把问题也转成坐标 → 计算距离 → 返回最近的 top-k 块。距离常用<span class="term" title="余弦相似度：只看两个向量方向是否一致，范围 -1~1，1 为最相似">余弦相似度</span>衡量。</p>
     <div class="box sn"><b class="hd">对应到本项目</b>
       nano-graphrag 默认用一个叫 <code>nano-vectordb</code> 的超轻量向量库（作者自己写的），数据就是一个 JSON 文件，开箱即用——初学者不用装任何数据库服务。</div>
     <div class="box kp"><b class="hd">本课要点</b>
@@ -103,7 +103,7 @@ outline: [2, 3]
 <section class="lesson" id="l5">
   <div class="lhead"><div class="lno">05</div><h3 id="知识图谱与-graphrag-思路">知识图谱与 GraphRAG 思路</h3><span class="ldiff">入门</span></div>
   <div class="lbody">
-    <p><strong><span class="term" title="Knowledge Graph：用&quot;节点=事物，边=关系&quot;的方式组织知识的数据结构"">知识图谱</span></strong>（Knowledge Graph）就是上一课说的那张"网"：</p>
+    <p><strong><span class="term" title="Knowledge Graph：用&quot;节点=事物，边=关系&quot;的方式组织知识的数据结构">知识图谱</span></strong>（Knowledge Graph）就是上一课说的那张"网"：</p>
     <ul>
       <li><strong>节点（Node）= 实体</strong>：人、公司、地点、事件…… 如「小李」「茶百道」「杭州」</li>
       <li><strong>边（Edge）= 关系</strong>：两个实体之间有联系。如 小李 —<em>就职于</em>→ 茶百道</li>
@@ -128,7 +128,7 @@ outline: [2, 3]
     <table>
       <tr><th>短板</th><th>GraphRAG 的解法</th></tr>
       <tr><td>链条断裂</td><td>答案相关的实体和关系被<strong>边</strong>连着，检索时沿着边走一步、两步，把断开的链条接上</td></tr>
-      <tr><td>全局失明</td><td>提前为每个<strong>社区</strong>写好摘要报告，查询时读报告而不是读碎片</td></tr>
+      <tr><td>全局失明</td><td>提前为每个<strong>社区</strong>写好摘要报告，查询时读的是现成报告，不必拼碎片</td></tr>
       <tr><td>信息孤岛</td><td>同一实体在图里是<strong>同一个节点</strong>，所有文档里的描述都合并挂在这个节点上</td></tr>
     </table>
     <div class="box kp"><b class="hd">本课要点 · 第一部分收尾</b>
@@ -164,7 +164,7 @@ print(graph.query(<span class="s">"小李的公司成立于哪一年？"</span>,
     <p>预期输出（示意——文字会因模型而异，但<strong>类型一定是字符串、且能推出 2008</strong>）：</p>
     <div class="box ex"><b class="hd">控制台看到的内容</b>
       <pre>根据提供的资料，小李就职于茶百道；茶百道于 2008 年在成都成立。因此，小李的公司成立于 <strong>2008 年</strong>。</pre>
-      注意两点：<code>graph.query(...)</code> 返回的是<strong>一段字符串</strong>，不是对象；<code>graph.insert(...)</code> 期间屏幕会打出大量日志（分块、抽取、聚类、写报告各阶段的 INFO），属于正常现象。</div>
+      注意两点：<code>graph.query(...)</code> 返回的是<strong>一段字符串</strong>；<code>graph.insert(...)</code> 期间屏幕会打出大量日志（分块、抽取、聚类、写报告各阶段的 INFO），属于正常现象。</div>
     <div class="box sn"><b class="hd">没有 API key 怎么办</b>
       仓库自带 <code>examples/no_openai_key_at_all.py</code>，用 Ollama 跑本地模型即可完整体验流程（质量差些，但产物结构一模一样。拿 DeepSeek 等 OpenAI 兼容服务也行：改 <code>best_model_func</code> / <code>embedding_func</code> 指向自家接口，见第 8 课地图里的 <code>_llm.py</code>）。</div>
     <p>这一行 <code>insert</code> 背后发生了 6 件事，每件都在磁盘 <code>./my_kg/</code> 留下产物：</p>
@@ -256,7 +256,7 @@ graph.query(<span class="s">"茶百道总部在哪？"</span>,           QueryPa
     <div class="box ex"><b class="hd">global —— 问"这批文档整体讲了什么？"</b>
       <pre>这批文档围绕"茶百道"这一新茶饮品牌展开：介绍了其总部所在地（成都）、成立时间（2008 年），
 以及一名在杭州研发岗位工作的员工小李。整体呈现"公司概况 + 人员构成"两类信息。</pre>
-      长、概括、跨社区——典型的主题综述。它<strong>不引用单个实体</strong>，而是把各社区报告的要点融成一段。</div>
+      长、概括、跨社区——典型的主题综述。它<strong>不引用单个实体</strong>，把各社区报告的要点融成一段。</div>
     <div class="box ex"><b class="hd">naive —— 问"茶百道总部在哪？"</b>
       <pre>茶百道的总部位于成都（另有资料提到其成立于 2008 年）。</pre>
       朴素 RAG 的口吻：直接复述检索到的原文块，不做跨块推理。</div>
@@ -294,7 +294,7 @@ graph.query(<span class="s">"茶百道总部在哪？"</span>,           QueryPa
   <div class="lhead"><div class="lno">09</div><h3 id="l9">第一步：切块与去重</h3><span class="ldiff">基础</span></div>
   <div class="lbody">
     <h4 id="l9-12">做什么</h4>
-    <p>把文档切成小块（chunk）。默认策略是<strong>按 token 数滑动窗口硬切</strong>：每块最多 1200 个 <span class="term" title="token：模型计费和限长的单位。1 个汉字通常约 1~2 个 token"">token</span>，相邻块重叠 100 个 token。</p>
+    <p>把文档切成小块（chunk）。默认策略是<strong>按 token 数滑动窗口硬切</strong>：每块最多 1200 个 <span class="term" title="token：模型计费和限长的单位。1 个汉字通常约 1~2 个 token">token</span>，相邻块重叠 100 个 token。</p>
     <div class="box an"><b class="hd">为什么要重叠？</b>
       想象把一本书每 20 页装订一份复印件。如果切口正好落在一句话中间，这句话两边的块都"看不全"它。留 100 token 重叠，等于<strong>每个切口附近都有两份拷贝</strong>，关键信息不至于被切丢。</div>
     <div class="box ex"><b class="hd">例子走一遍</b>
@@ -419,8 +419,7 @@ level 2:        [小组A1] [小组A2]      [小组B1] [小组B2]
     <h4 id="怎么保证不超模型窗口打包预算">怎么保证不超模型窗口：打包预算</h4>
     <p>一个社区可能有几百个节点，全塞进提示词会爆窗口。系统有一套打包策略（<code>_pack_single_community_describe</code>）：</p>
     <div class="flow">
-      <div class="fbox f4">① 大社区优先用子报告<small>圈太大时，不列明细，
-      而是引用已写好的子社区报告摘要</small></div>
+      <div class="fbox f4">① 大社区优先用子报告<small>圈太大时，直接引用已写好的子社区报告摘要</small></div>
       <div class="arr">→</div>
       <div class="fbox f3">② 按重要性排序<small>节点按度数（朋友数）排，
       关系按两端度数和排——重要的排前面</small></div>
@@ -475,7 +474,7 @@ level 2:        [小组A1] [小组A2]      [小组B1] [小组B2]
   <div class="lhead"><div class="lno">15</div><h3 id="global我要的是全局">global：我要的是全局</h3><span class="ldiff">进阶</span></div>
   <div class="lbody">
     <h4 id="它完全不走实体向量只读年报">它完全不走实体向量，只读"年报"</h4>
-    <p>问「这批文档里的公司整体发展如何？」——没有任何单个实体能回答这个问题。global 的策略是把第 13 课写好的<strong>所有社区报告</strong>拿来，走一轮 <span class="term" title="Map-Reduce：先分头处理（Map），再汇总结果（Reduce）"">Map-Reduce</span>：</p>
+    <p>问「这批文档里的公司整体发展如何？」——没有任何单个实体能回答这个问题。global 的策略是把第 13 课写好的<strong>所有社区报告</strong>拿来，走一轮 <span class="term" title="Map-Reduce：先分头处理（Map），再汇总结果（Reduce）">Map-Reduce</span>：</p>
     <div class="flow" style="flex-direction:column">
       <div class="fbox f4">① 筛选：挑出要读的报告<small>层级 ≤ level、按 occurrence 排序取前 512 个、评分低于阈值的丢掉</small></div>
       <div class="arr">↓</div>
@@ -486,7 +485,7 @@ level 2:        [小组A1] [小组A2]      [小组B1] [小组B2]
       <div class="fbox f2">④ Reduce：最后一次 LLM 调用，把要点融成最终回答<small>"分析师报告已按重要性排序，请综合成一段回答"</small></div>
     </div>
     <div class="box an"><b class="hd">类比：开总结大会</b>
-      报告太多，老板一个人读不完 → <strong>分组</strong>：每人发一摞报告，各自提炼 10 条要点并打分（=Map）→ 把所有人交上来的要点汇总、按分数排序（=汇总）→ 最后一个人把精华写成总报告（=Reduce）。<br>注意：<strong>发一摞报告给"人"而不是发一张清单</strong>，是因为一摞报告能装下更多 token——分组本身就是控制长度的手段。</div>
+      报告太多，老板一个人读不完 → <strong>分组</strong>：每人发一摞报告，各自提炼 10 条要点并打分（=Map）→ 把所有人交上来的要点汇总、按分数排序（=汇总）→ 最后一个人把精华写成总报告（=Reduce）。<br>注意：<strong>分组时发出去的是一摞报告</strong>，它能装下更多 token——分组本身就是控制长度的手段。</div>
     <p>对比 local，二者的分工非常清晰：</p>
     <table>
       <tr><th></th><th>local</th><th>global</th></tr>
@@ -563,7 +562,7 @@ level 2:        [小组A1] [小组A2]      [小组B1] [小组B2]
     <h4 id="l18-45">保险三 · 限流（进闸门先排队）</h4>
     <p>抽取几百个块时会同时发几百个请求，API 必然报错。系统给每个 LLM/Embedding 函数外面套了一层<strong>并发闸门</strong>（<code>limit_async_func_call</code>）：同时最多 16 个在飞（可配），第 17 个请求必须等前面有人完成才放行。</p>
     <div class="box an"><b class="hd">类比：景区闸机</b>
-      闸机同时只放 16 人，第 17 人在黄线外等——不是拒绝，是排队。这样把"同时几百个请求"变成"稳定的每秒十几个请求"，限流错误自然就少了。</div>
+      闸机同时只放 16 人，第 17 人在黄线外等——只是排队，不算拒绝。这样把"同时几百个请求"变成"稳定的每秒十几个请求"，限流错误自然就少了。</div>
     <p class="mini"><span class="fileref">_utils.py:276 limit_async_func_call</span></p>
     <div class="box kp"><b class="hd">本课要点</b>
       重试治"网络抖动"，缓存治"重复花钱"，限流治"并发过猛"。三道保险让大规模文档的抽取既稳又省。</div>
@@ -602,7 +601,7 @@ graph = GraphRAG(
     vector_db_storage_cls=HNSWVectorStorage, <span class="cm"># 向量库同理</span>
 )</pre>
     <div class="box an"><b class="hd">类比：换电池</b>
-      接口像"5 号电池仓"：仓的规格（正负极、直径）是固定的，电池品牌随便换。GraphRAG 主流程只认"仓"，不知道里面装的是谁——所以它才敢在 <code>__post_init__</code> 里写 <code>self.graph_storage_cls(...)</code> 而不关心具体类。</div>
+      接口像"5 号电池仓"：仓的规格（正负极、直径）是固定的，电池品牌随便换。GraphRAG 主流程只认"仓"，不知道里面装的是谁——所以它才敢在 <code>__post_init__</code> 里写 <code>self.graph_storage_cls(...)</code> 也不关心具体类。</div>
     <h4 id="l19-49">还有个容易忽略的设计：统一的落盘时机</h4>
     <p>所有存储都继承同一个基类，带三个钩子函数：<code>index_start_callback</code>（开始写入前调用）、<code>index_done_callback</code>（全部写完后调用）。默认实现是"整个 insert 过程都在内存里改，<strong>最后一次性把 JSON/graphml/向量库写到磁盘</strong>"——避免写一半崩了留下脏数据。</p>
     <p class="mini"><span class="fileref">base.py:59-186 接口定义</span> · <span class="fileref">graphrag.py:360 _insert_done 统一落盘</span></p>

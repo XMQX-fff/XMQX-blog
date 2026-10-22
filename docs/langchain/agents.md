@@ -114,7 +114,7 @@ print(result["messages"][-1].text)  # （示意）你好，小明！有什么可
 每跑完一步落一次盘（检查点）。智能体的状态（state）是贯穿整个图的共享数据。
 默认 `AgentState` 至少包含 `messages` 列表。
 
-### 2.1 messages 为什么是"追加"而不是"覆盖"
+### 2.1 messages 为什么用追加语义
 
 `AgentState` 的 `messages` 键挂着一个叫 **`add_messages` 的归约器
 （reducer）**。

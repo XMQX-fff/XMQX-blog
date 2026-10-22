@@ -9,8 +9,8 @@ outline: [2, 3]
     <div class="eyebrow">System Design · Implementation Notes</div>
     <h1 id="把跟-llm-聊天写小说变成一条可控的创作流水线">把「跟 LLM 聊天写小说」<br>变成一条可控的创作流水线</h1>
     <p class="lead">
-      NovelCraft AI 是一套基于 LangGraph 的智能小说创作系统。它的价值不在「让模型写得更漂亮」——
-      底层模型与你直接聊天时完全一样——而在于解决长篇创作中三个真正致命的问题：
+      NovelCraft AI 是一套基于 LangGraph 的智能小说创作系统。它的价值在于解决长篇创作中三个真正致命的问题——
+      底层模型与你直接聊天时完全一样：
       <b>上下文会爆</b>、<b>历史改不动</b>、<b>一致性保不住</b>。
     </p>
     <div class="badges">
@@ -23,11 +23,11 @@ outline: [2, 3]
     </div>
     <div class="stats">
       <div class="stat"><b>6 阶段</b><small>创作流程状态机</small></div>
-      <div class="stat"><b>3 类</b><small>挂起中断 interrupt</small></div>
+      <div class="stat"><b>2 类</b><small>挂起中断 interrupt</small></div>
       <div class="stat"><b>步级</b><small>checkpoint 粒度</small></div>
-      <div class="stat"><b>200</b><small>步级快照保留数</small></div>
-      <div class="stat"><b>9 个</b><small>前端页面</small></div>
-      <div class="stat"><b>12 个</b><small>后端路由模块</small></div>
+      <div class="stat"><b>20</b><small>步级快照保留数</small></div>
+      <div class="stat"><b>8 个</b><small>前端页面</small></div>
+      <div class="stat"><b>11 个</b><small>后端路由模块</small></div>
     </div>
   </div>
 </header>
@@ -54,7 +54,7 @@ outline: [2, 3]
         <div class="link"><em>127.0.0.1:3000</em><i></i></div>
         <div class="box w-lg mark">
           <b>FastAPI + Uvicorn（--loop asyncio）</b>
-          <small>LangGraph 状态机　·　流式 NDJSON 事件　·　JWT 鉴权　·　12 个路由模块</small>
+          <small>LangGraph 状态机　·　流式 NDJSON 事件　·　JWT 鉴权　·　11 个路由模块</small>
         </div>
         <div class="link"><em>三类外部依赖</em><i></i></div>
         <div class="cols3">
@@ -71,15 +71,15 @@ outline: [2, 3]
           <div class="svc">
             <b>LLM API</b>
             <small>默认 SiliconFlow<br>DeepSeek-V3.2</small>
-            <span class="tag gray">8 家供应商可切换</span>
+            <span class="tag gray">9 家供应商可切换</span>
           </div>
         </div>
       </div>
       <div class="cap">图 1 · 生产部署架构：Nginx → FastAPI / LangGraph → 三个外部依赖</div>
     </div>
-    <div class="note w"><b>⚠</b><div>三个外部依赖都在<b>境外</b>。部署在国内云主机前必须验证出网连通性，
-      尤其是 TiDB（<code>gateway01.ap-northeast-1.prod.aws.tidbcloud.com:4000</code>）——它一旦不通，
-      服务<b>启动即失败</b>，没有任何降级路径。</div></div>
+    <div class="note w"><b>⚠</b><div>外部依赖里 TiDB（<code>gateway01.ap-northeast-1.prod.aws.tidbcloud.com:4000</code>）与
+      Qdrant（<code>us-east-1</code>）都在<b>境外</b>，默认 LLM 供应商 SiliconFlow 在境内。跨境链路要验证的是前两者——
+      尤其是 TiDB，它一旦不通，服务<b>启动即失败</b>，没有任何降级路径。</div></div>
   </div>
 </section>
 <!-- ===================== 02 技术栈 ===================== -->
@@ -123,14 +123,14 @@ outline: [2, 3]
       </div>
     </div>
     <h3 id="stack-5">为什么流式用 NDJSON</h3>
-    <p>创作接口返回 <code>application/x-ndjson</code>，每行一个 JSON 事件。选它不是赶时髦，而是解决三个具体问题：</p>
+    <p>创作接口返回 <code>application/x-ndjson</code>，每行一个 JSON 事件。选它是为了解决三个具体问题：</p>
     <ul class="clean">
       <li><b>多目标分流</b>：同一条流要同时推送「正文 token」「审核报告」「润色对比」「引用卡」「阶段切换」，NDJSON 天然支持异构事件混排。</li>
       <li><b>逐字打印</b>：token 增量用 <code>delta</code> 事件按目标分发——<code>editor</code> 中间栏正文、<code>review</code> 独立审核页、<code>polish</code> 润色对比右栏、<code>artifact</code> 阶段产物视图。</li>
       <li><b>代理友好</b>：相比 SSE，NDJSON 就是普通 HTTP 响应体，Nginx 关掉 <code>proxy_buffering</code> 即可透传。</li>
     </ul>
     <div class="note w"><b>◈</b><div>启动后端时 <code>--loop asyncio</code> 不能省：uvloop 在信号打断时会命中
-      <code>Assertion 'errno == EINTR' failed</code> 直接 abort，导致收到 SIGTERM 时不是优雅关闭而是崩溃退出。</div></div>
+      <code>Assertion 'errno == EINTR' failed</code> 直接 abort，导致收到 SIGTERM 时崩溃退出，做不到优雅关闭。</div></div>
   </div>
 </section>
 <!-- ===================== 03 创作引擎 ===================== -->
@@ -139,16 +139,16 @@ outline: [2, 3]
     <div class="eyebrow">03 · Creation Engine</div>
     <h2 id="graph">创作引擎：LangGraph 状态机</h2>
     <p class="lead">
-      创作不是一个大 prompt，而是一张编译过的状态图。六个创作阶段依次推进，
+      创作引擎是一张编译过的状态图。六个创作阶段依次推进，
       每个阶段产出后统一进入人工审核，通过后再由 router 分发到下一阶段。
     </p>
     <div class="diagram">
       <div class="flow">
         <div class="node gate">worldbuilding<small>世界观</small></div>
         <span class="arw"></span>
-        <div class="node gate">character<small>人设</small></div>
+        <div class="node gate">character_gen<small>人设</small></div>
         <span class="arw"></span>
-        <div class="node gate">outline<small>卷纲</small></div>
+        <div class="node gate">outline_gen<small>卷纲</small></div>
         <span class="arw"></span>
         <div class="node gate">writing<small>撰写正文</small></div>
         <span class="arw"></span>
@@ -166,7 +166,7 @@ outline: [2, 3]
         <span class="chip">router</span>
         <p>通过 → 回 router 统一分发到下一阶段；驳回 → 直连当前阶段节点重跑（不重复门禁）</p>
       </div>
-      <div class="cap">图 2 · 创作状态机：橙色节点进入前需与作者对齐确认；reviewing / polishing 不设门禁</div>
+      <div class="cap">图 2 · 创作状态机：橙色节点进入前需与作者对齐确认；reviewing / polishing 不设门禁。图中画的是<b>节点名</b>——阶段 <code>character</code> / <code>outline</code> 对应的节点叫 <code>character_gen</code> / <code>outline_gen</code>（见下节约束③）</div>
     </div>
     <h3 id="graph-7">三条图结构上的关键约束</h3>
     <div class="grid g3">
@@ -190,7 +190,7 @@ outline: [2, 3]
     <p>普通做法是「正文和章纲一起生成」。本系统在 <code>writing</code> 之前插了专门的 <code>chapter_outline</code> 节点：</p>
     <div class="steps">
       <li><b>router 检查</b><span>当前章没有章纲 → 先走 <code>chapter_outline</code> 生成章纲，并预取本章写作资料</span></li>
-      <li><b>进门禁</b><span>作者先就<b>章纲</b>讨论确认，而不是面对一大段已经写好的正文</span></li>
+      <li><b>进门禁</b><span>作者先就<b>章纲</b>讨论确认，此时正文还没有开始写</span></li>
       <li><b>确认后才动笔</b><span>确认写入 <code>stage_gate.confirmed</code>，router 据此放行到 <code>writing</code></span></li>
     </div>
     <div class="note g"><b>✓</b><div>改一章<b>纲</b>的成本远低于改一章正文。把人工介入点前移到动笔之前，等于把最贵的返工提前拦截。</div></div>
@@ -206,19 +206,18 @@ outline: [2, 3]
       理解「恢复时节点会从头重放」这一点，就理解了全部代码写法。
     </p>
     <div class="note i"><b>◈ 核心语义</b><div>
-      恢复时节点函数<b>重新执行一遍</b>，直到再次运行到 <code>interrupt()</code> 那一行——第二次调用不再抛异常，
-      而是直接返回注入的决策。<br>
+      恢复时节点函数<b>重新执行一遍</b>，直到再次运行到 <code>interrupt()</code> 那一行——第二次调用直接返回注入的决策，不再抛异常。<br>
       推论：<b>所有跨轮状态只能存在两个地方</b>——State 字段，或 resume 回传的数据。
       这就是为什么轮次要写成 <code>gate["round"] + 1</code>、为什么 <code>discussion_id</code> 必须让前端原样回传。
     </div></div>
-    <h3 id="hitl-13">三类挂起点</h3>
+    <h3 id="hitl-13">三类挂起点（实际只有两个在用）</h3>
     <div class="tbl-wrap">
       <table>
         <thead><tr><th>kind</th><th>触发节点</th><th>时机</th><th>恢复接口</th><th>决策动作</th></tr></thead>
         <tbody>
-          <tr><td><code>confirm</code></td><td><code>stage_gate</code></td><td>进入 世界观 / 人设 / 大纲 / 撰写 之前</td><td><code>POST /resume</code></td><td>confirm 放行 / revise 自环</td></tr>
+          <tr><td><code>confirm</code></td><td><code>gate</code><br><small>State 字段叫 <code>stage_gate</code></small></td><td>进入 世界观 / 人设 / 大纲 / 撰写 之前</td><td><code>POST /resume</code></td><td>confirm 放行 / revise 自环</td></tr>
           <tr><td><code>review</code></td><td><code>human_review</code></td><td>每个阶段产出之后</td><td><code>POST /review</code></td><td>approve / modify / reject</td></tr>
-          <tr><td><code>question</code></td><td>生成节点内</td><td>生成过程中追问</td><td><code>POST /resume</code></td><td>answer</td></tr>
+          <tr><td><code>question</code></td><td colspan="4"><small>保留兼容代码：<code>interrupt_question_event</code> 与 <code>/resume</code> 的 <code>action=answer</code> 分支都还在，但<b>没有任何节点发出 <code>kind=question</code></b>。挂起点实际只有上面两个。</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -360,7 +359,7 @@ outline: [2, 3]
           </ul>
         </div>
       </div>
-      <h4 id="storage-27" style="text-align:center;margin-top:26px">全部落在 TiDB 的七张表</h4>
+      <h4 id="storage-27" style="text-align:center;margin-top:26px">全部落在 TiDB 的八张表</h4>
       <div class="grid g3">
         <div class="svc" style="text-align:left">
           <b>checkpoints / writes</b>
@@ -376,7 +375,8 @@ outline: [2, 3]
         </div>
       </div>
       <p style="text-align:center;font-size:12.5px;color:var(--ink-3);margin-bottom:0">
-        另有 projects / users / login_failures 三张业务表；向量数据在 Qdrant
+        另有 projects / users / login_failures / token_usage 四张业务表（<code>token_usage</code> 是「用户 × 天」的 token 日聚合，
+        配额闸门在 <code>/run</code>、<code>/discuss</code> 入口判超额）；向量数据在 Qdrant
       </p>
       <div class="cap">图 4 · 存储分层：State 存指针，正文独立按版本追加</div>
     </div>
@@ -415,31 +415,31 @@ outline: [2, 3]
     <div class="diagram">
       <div class="retain">
         <div class="z del">
-          <b>超出 200 的步级</b>
+          <b>超出 20 的步级</b>
           删除并重链父指针
         </div>
         <div class="z keep">
           <b>保留区</b>
-          里程碑全部保留 + 最近 200 个步级
+          里程碑全部保留 + 最近 20 个步级
         </div>
       </div>
       <div class="dots">
-        <span class="m" title="create 里程碑""></span>
+        <span class="m" title="create 里程碑"></span>
         <span class="d"></span><span class="d"></span><span class="d"></span><span class="d"></span><span class="d"></span><span class="d"></span>
         <span class="gap"></span>
-        <span class="s"></span><span class="s"></span><span class="m" title="stage 里程碑""></span><span class="s"></span>
-        <span class="s"></span><span class="s"></span><span class="m" title="chapter 里程碑""></span><span class="s"></span>
-        <span class="s"></span><span class="m" title="review 里程碑""></span><span class="s"></span><span class="s"></span>
+        <span class="s"></span><span class="s"></span><span class="m" title="stage 里程碑"></span><span class="s"></span>
+        <span class="s"></span><span class="s"></span><span class="m" title="chapter 里程碑"></span><span class="s"></span>
+        <span class="s"></span><span class="m" title="review 里程碑"></span><span class="s"></span><span class="s"></span>
       </div>
       <div class="legend">
         <span><i class="m"></i>里程碑 · 永久保留</span>
-        <span><i class="s"></i>步级 · 保留最近 200</span>
+        <span><i class="s"></i>步级 · 保留最近 20</span>
         <span><i class="d"></i>被清理</span>
       </div>
       <div class="cap">图 5 · 时间轴由左至右。注意最左侧的 create 里程碑虽然很老，仍因是里程碑而保留</div>
     </div>
     <h3 id="checkpoint-31">里程碑怎么判定</h3>
-    <p><b>不依赖写入时注入 metadata</b>，而是在读取历史时按快照内容<b>确定性推导</b>——这样对历史数据同样有效：</p>
+    <p><b>读取历史时按快照内容确定性推导</b>，不依赖写入时注入的 metadata——这样对历史数据同样有效：</p>
     <div class="tbl-wrap">
       <table>
         <thead><tr><th>条件</th><th>动作标签</th></tr></thead>
@@ -469,10 +469,10 @@ outline: [2, 3]
     <p>手动删除则是即时的：<b>删除章节</b>会清掉该章所有正文版本；<b>删除项目</b>会全清（快照、分支快照、正文、向量、会话与讨论）。</p>
     <h3 id="checkpoint-33">时间旅行能做什么</h3>
     <div class="grid g2">
-      <div class="card accent"><span class="ico">↺</span><h4 id="checkpoint-34">快照回滚</h4><p>只恢复状态，<b>不自动重跑</b>。回滚后会自动按 chapters 全量重建向量库，否则检索到的还是回滚前的内容。</p></div>
-      <div class="card accent"><span class="ico">⑂</span><h4 id="checkpoint-35">分支</h4><p>可从任意快照派生，复制 State 到新 thread，支持左右对比与合并（replace / new_snapshot）。</p></div>
-      <div class="card accent"><span class="ico">⟳</span><h4 id="checkpoint-36">局部重跑</h4><p>指定起始章节重跑后续 N 章（默认 3 章），不必从头再来。</p></div>
-      <div class="card accent"><span class="ico">◷</span><h4 id="checkpoint-37">正文随状态回滚</h4><p>回退时 <code>content_ref</code> 跟着 State 回到旧指针——<b>回到昨天，看到的也是昨天的正文</b>。</p></div>
+      <div class="card accent"><span class="ico">↺</span><h4 id="checkpoint-34">从快照派生</h4><p>创建分支时可传 <code>from_snapshot_id</code> 指定任一历史快照作为起点（<code>POST /projects/{id}/branches</code>）。<b>快照本身不能原地回滚</b>——要回退就派生一条分支再对比。</p></div>
+      <div class="card accent"><span class="ico">⑂</span><h4 id="checkpoint-35">分支</h4><p>复制 State 到新 thread，支持左右对比与合并（<code>strategy: replace | new_snapshot</code>）。</p></div>
+      <div class="card accent"><span class="ico">⟳</span><h4 id="checkpoint-36">局部重跑</h4><p>指定起始章节重跑后续 N 章（默认 3 章）。重跑前会先按 <code>source="chapter"</code> + <code>chapter_index ≥ from</code> 精确定点删除旧向量，避免废弃设定被召回回来。</p></div>
+      <div class="card accent"><span class="ico">◷</span><h4 id="checkpoint-37">正文版本回退</h4><p><code>GET /chapters/{id}/versions</code> 列出全部正文版本，<code>POST /chapters/{id}/versions/{v}/restore</code> 以旧版本<b>追加一份新版本</b>（append-only，历史不被抹掉）。</p></div>
     </div>
   </div>
 </section>
@@ -493,19 +493,21 @@ outline: [2, 3]
         <span class="arw"></span>
         <div class="node">Embedding<small>bge-m3 · 1024 维</small></div>
         <span class="arw"></span>
-        <div class="node soft">Qdrant 检索<small>scope=all · k=8</small></div>
+        <div class="node gate">相似度过滤<small>每条子查询各自 min_score = 0.45</small></div>
         <span class="arw"></span>
-        <div class="node gate">相似度过滤<small>min_score = 0.45</small></div>
+        <div class="node soft">Qdrant 检索<small>scope=story（前情正文 + 伏笔）<br>每条 top-3 · 合并后 k=8</small></div>
+        <span class="arw"></span>
+        <div class="node plain">合并去重<small>名次轮转 + 最近 5 章时间偏置</small></div>
       </div>
       <div class="link"><em>注入写作 prompt</em><i></i></div>
       <div class="flow-router">
         <span class="chip">writing_node</span>
         <p>检索结果同时下发前端渲染「引用卡」，作者能看到模型到底参考了哪些资料</p>
       </div>
-      <div class="cap">图 6 · 写章前的检索链路：从章纲到上下文注入；作者上传的设定集作为硬约束另行注入</div>
+      <div class="cap">图 6 · 写章前的检索链路：从章纲到上下文注入。世界观 / 人设走直塞区块（不走检索），作者上传的设定集另走 <code>scope="document"</code> 一路作为硬约束</div>
     </div>
     <h3 id="rag-39">阈值是怎么标定的</h3>
-    <p><code>RAG_MIN_SCORE = 0.45</code> 不是拍脑袋定的，实测标定点如下：</p>
+    <p><code>RAG_MIN_SCORE = 0.45</code> 由实测标定得出，标定点如下：</p>
     <div class="tbl-wrap">
       <table>
         <thead><tr><th>样本</th><th>分数</th><th>结论</th></tr></thead>
@@ -518,10 +520,11 @@ outline: [2, 3]
     </div>
     <p>取 0.45 的代价是少数边缘命中被砍掉，但写入时 top_k 本来就不大，可以接受。想更保守调 0.35，想更干净调 0.55。</p>
     <div class="note w"><b>⚠ 一致性是软检测</b><div>
-      <code>reviewing</code> 节点让 LLM 输出 <code>ReviewIssue{kind: ooc | foreshadow | conflict | logic, severity, suggestion}</code>。
+      <code>reviewing</code> 节点让 LLM 输出 <code>ReviewIssue{id, kind: ooc | foreshadow | conflict | logic | style, severity: critical | major | minor, description, suggestion}</code>，
+      并给出 <code>overall_score</code>（0–100）。
       这里<b>没有规则引擎、没有 NLI 硬校验</b>，本质是「让模型自查」，会漏也会误报。
       伏笔回收靠「未回收伏笔进检索 query」被动防漏。<br>
-      所以系统的保证是「作者有机会看到并否决」，<b>不是</b>「问题一定被找全」。
+      所以系统的保证是「作者有机会看到并否决」，「问题一定被找全」做不到。
     </div></div>
   </div>
 </section>
@@ -566,15 +569,15 @@ outline: [2, 3]
     <h2 id="frontend">产品形态</h2>
     <p class="lead">三栏工作台：左栏大纲与章节、中间栏编辑器与产物视图、右栏 AI 会话面板。</p>
     <div class="grid g3">
-      <div class="card"><span class="ico">◫</span><h4 id="frontend-47">项目列表</h4><p>创建 / 重命名 / 删除 / 复制项目</p></div>
-      <div class="card"><span class="ico">▤</span><h4 id="frontend-48">工作台 Workbench</h4><p>三栏写作台：大纲、章节编辑、流式生成日志</p></div>
-      <div class="card"><span class="ico">⚙</span><h4 id="frontend-49">设定中心</h4><p>角色 / 世界观 / 伏笔的集中管理</p></div>
-      <div class="card"><span class="ico">◷</span><h4 id="frontend-50">时间线 Timeline</h4><p>历史快照时间线、版本对比与回溯</p></div>
-      <div class="card"><span class="ico">⑂</span><h4 id="frontend-51">分支对比</h4><p>分支列表与左右内容差异对比</p></div>
-      <div class="card"><span class="ico">⌕</span><h4 id="frontend-52">全文搜索</h4><p>跨章节检索，命中段落可跳转高亮</p></div>
-      <div class="card"><span class="ico">☰</span><h4 id="frontend-53">首页 / 登录</h4><p>入口页与 JWT 登录（用户体系可开关）</p></div>
+      <div class="card"><span class="ico">☰</span><h4 id="frontend-47">登录页 <code>/login</code></h4><p>JWT 登录（用户体系可开关）+ 算术验证码</p></div>
+      <div class="card"><span class="ico">◫</span><h4 id="frontend-48">项目列表 <code>/</code></h4><p>创建 / 重命名 / 删除 / 复制项目，显示章数与字数</p></div>
+      <div class="card"><span class="ico">☗</span><h4 id="frontend-49">成员管理 <code>/admin</code></h4><p>用户列表、改密（同步吊销会话）、成员作品只读浏览、删号级联清理</p></div>
+      <div class="card"><span class="ico">▤</span><h4 id="frontend-50">工作台 <code>/p/:id</code></h4><p>三栏写作台：大纲、章节编辑、流式生成日志</p></div>
+      <div class="card"><span class="ico">⚙</span><h4 id="frontend-51">设定中心 <code>/p/:id/settings</code></h4><p>角色（含别名）/ 世界观 / 伏笔的集中管理</p></div>
+      <div class="card"><span class="ico">⑂</span><h4 id="frontend-52">分支对比 <code>/p/:id/branches</code></h4><p>分支列表与左右内容差异对比</p></div>
+      <div class="card"><span class="ico">⌕</span><h4 id="frontend-53">全文搜索 <code>/p/:id/search</code></h4><p>跨章节检索，命中段落可跳转高亮</p></div>
       <div class="card"><span class="ico">◈</span><h4 id="frontend-54">NDJSON 流式消费</h4><p><code>fetch</code> ReadableStream 逐行解析，按 target 分发到不同面板</p></div>
-      <div class="card"><span class="ico">◇</span><h4 id="frontend-55">本地缓存</h4><p>Zustand + IndexedDB，刷新后不丢草稿</p></div>
+      <div class="card"><span class="ico">◇</span><h4 id="frontend-55">本地缓存</h4><p>Zustand + <code>localStorage</code>，只持久化 UI 偏好、JWT 与视图模式；正文草稿只在内存，刷新即失</p></div>
     </div>
     <div class="note i"><b>◈</b><div>前端用 <code>BrowserRouter</code>，所以 Nginx 必须配
       <code>try_files $uri $uri/ /index.html</code>，否则刷新子路由会 404。</div></div>
@@ -622,7 +625,7 @@ outline: [2, 3]
     </div>
     <h3 id="tradeoff-58">已知边界</h3>
     <div class="grid g2">
-      <div class="card warn"><h4 id="tradeoff-59">并发标记是进程内的</h4><p><code>in_flight</code> 用进程内 Set 防重复请求，<b>多副本部署会失效</b>，需换分布式锁。</p></div>
+      <div class="card warn"><h4 id="tradeoff-59">多副本部署被硬性禁止</h4><p><code>in_flight</code>、sidecar seq 缓存、改写重跑标记都是进程内状态，所以第二个进程共用数据目录时<b>启动即失败</b>——<code>lifespan</code> 一进来就用 <code>flock</code> 抢实例锁，抢不到直接抛错（见 <code>core/instance_lock.py</code>）。要横向扩展必须先把这三处换成 Redis 之类的共享存储。</p></div>
       <div class="card warn"><h4 id="tradeoff-60">AI 看不到讨论过程</h4><p>多轮讨论只以 <code>notes</code> 与最终 brief 进入生成，中间推理链不传给阶段节点。</p></div>
       <div class="card warn"><h4 id="tradeoff-61">reject 成本高</h4><p>一次驳回 = 一次完整阶段重跑。低成本修改应走 <code>/revise-field</code>、<code>/revise-chapter</code>。</p></div>
       <div class="card warn"><h4 id="tradeoff-62">门禁轮次只是软上限</h4><p>超过 5 轮仍要求确认，只在提示里建议「可直接确认」。</p></div>

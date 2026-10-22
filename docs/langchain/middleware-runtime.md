@@ -63,7 +63,7 @@ agent = create_agent(
 
 **节点式钩子（node-style）**：在固定时机**顺序运行**的逻辑片，
 接收 `state` 和 `runtime`，返回 `dict | None`（None = 什么都不改）。
-它是"插入一步"而不是"包住某步"：
+它的作用是在流程里"插入一步"：
 
 ```python
 from langchain.agents.middleware import before_agent, before_model, after_model, after_agent

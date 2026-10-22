@@ -4,11 +4,14 @@ layout: home
 hero:
   name: XMQX 的博客
   text: 学习笔记与资料整理
-  tagline: GraphRAG · LangGraph · LangChain · 编程 · 更多资料持续沉淀
+  tagline: GraphRAG · LangGraph · LangChain · A2A · 编程 · 更多资料持续沉淀
   actions:
     - theme: brand
       text: 进入 LangGraph 学习
       link: /langgraph/
+    - theme: alt
+      text: 进入 A2A 协议
+      link: /a2a/
     - theme: alt
       text: 进入 LangChain 学习
       link: /langchain/
@@ -17,6 +20,11 @@ hero:
       link: /graphrag/
 
 features:
+  - icon: 🤝
+    title: A2A 协议
+    details: 智能体互操作协议 A2A 的完整学习栏目：核心模型、标准接口、通信模型、系统架构、两篇动手实战、生产落地与避坑专题，共 15 篇。
+    link: /a2a/
+    linkText: 进入栏目
   - icon: 🤖
     title: LangGraph 学习
     details: 跟着官方中文文档啃下来的一条主线笔记：从图 API、智能体架构到持久化、人机协作与流式输出，六篇串成一条线。

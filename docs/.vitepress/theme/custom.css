@@ -352,6 +352,172 @@
 .vp-doc ul.plain { padding-left: 20px; }
 .vp-doc ul.plain li { margin: 5px 0; }
 
+/* ---------- 思维脑图 ----------
+  * 两篇 GraphRAG 文档各配一张脑图：横向依次是「篇 → 课 → 要点」三层。
+  * 整棵树用 CSS 画连接线（.mmap-forest 的竖线是各篇的分叉总线，
+  * .mmap-kids 的竖线是篇内各课的连线），不依赖 JS，服务端渲染出来的
+  * HTML 里就是完整的结构，搜索也能命中里面的文字。
+  *
+  * 树比正文列宽，.mmap-wrap 负责横向滚动，两端浮一道滚动阴影提示。
+ */
+.vp-doc .mmap-wrap {
+  overflow-x: auto;
+  margin: 20px 0 8px;
+  padding-bottom: 6px;
+  /* 滚动阴影：内容超出时左右边缘浮出一道渐变，提示还能往两边拖 */
+  background:
+    linear-gradient(to right, var(--vp-c-bg) 30%, transparent) left center,
+    linear-gradient(to left, var(--vp-c-bg) 30%, transparent) right center,
+    radial-gradient(farthest-side at 0 50%, rgba(15, 23, 42, 0.14), transparent) left center,
+    radial-gradient(farthest-side at 100% 50%, rgba(15, 23, 42, 0.14), transparent) right center;
+  background-repeat: no-repeat;
+  background-size: 40px 100%, 40px 100%, 13px 100%, 13px 100%;
+  background-attachment: local, local, scroll, scroll;
+}
+/* 脑图页正文放宽：默认 688px 的正文列放不下整棵树，
+ * 让它吃满侧边栏右侧的空间（右侧大纲在这两页用不上）。 */
+.mindmap-page .VPDoc.has-aside .content-container { max-width: none; }
+.mindmap-page .VPDoc .content {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-right: 24px;
+}
+.vp-doc .mmap-hint {
+  font-size: 12.5px;
+  color: var(--x-muted);
+  margin: 0 0 6px;
+}
+.vp-doc .mmap {
+  display: flex;
+  align-items: stretch;
+  min-width: max-content;
+  font-size: 13px;
+}
+
+.vp-doc .mmap-forest {
+  position: relative;
+  flex: 1 0 auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  padding-left: 16px;
+}
+/* 分叉总线：竖着串起所有「篇」 */
+.vp-doc .mmap-forest::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 20px;
+  bottom: 20px;
+  border-left: 1.5px solid var(--x-line);
+}
+
+.vp-doc .mmap-branch { position: relative; flex: 0 0 212px; }
+.vp-doc .mmap-branch.mm-b1 { --mm: var(--x-blue); --mm-soft: var(--x-blue-soft); }
+.vp-doc .mmap-branch.mm-b2 { --mm: var(--x-green); --mm-soft: var(--x-green-soft); }
+.vp-doc .mmap-branch.mm-b3 { --mm: var(--x-amber); --mm-soft: var(--x-amber-soft); }
+.vp-doc .mmap-branch.mm-b4 { --mm: var(--x-purple); --mm-soft: var(--x-purple-soft); }
+.vp-doc .mmap-branch.mm-b5 { --mm: var(--x-rose); --mm-soft: var(--x-rose-soft); }
+.vp-doc .mmap-branch.mm-b6 { --mm: var(--x-blue); --mm-soft: var(--x-blue-soft); }
+/* 篇节点连到总线 */
+.vp-doc .mmap-branch::before {
+  content: "";
+  position: absolute;
+  left: -16px;
+  top: 20px;
+  width: 16px;
+  border-top: 1.5px solid var(--x-line);
+}
+.vp-doc .mmap-part {
+  position: relative;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1.4;
+  background: var(--mm-soft);
+  color: var(--mm);
+  border: 1px solid var(--mm);
+}
+.vp-doc .mmap-part .mmap-pno {
+  display: block;
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.85;
+  margin-bottom: 2px;
+}
+/* 篇节点往下引到课列表的竖线 */
+.vp-doc .mmap-part::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -14px;
+  height: 14px;
+  border-left: 1.5px solid var(--x-line);
+}
+
+.vp-doc .mmap-kids {
+  margin-top: 14px;
+  padding-left: 16px;
+  border-left: 1.5px solid var(--x-line);
+}
+.vp-doc .mmap-node { position: relative; margin-bottom: 12px; }
+.vp-doc .mmap-node::before {
+  content: "";
+  position: absolute;
+  left: -16px;
+  top: 14px;
+  width: 16px;
+  border-top: 1.5px solid var(--x-line);
+}
+.vp-doc .mmap-box {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  background: var(--x-panel);
+  border: 1px solid var(--x-line);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+.vp-doc .mmap-no {
+  flex: 0 0 auto;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--mm);
+  border-radius: 5px;
+  padding: 1px 5px;
+  white-space: nowrap;
+}
+.vp-doc .mmap-leaves {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0 0 0 12px;
+  border-left: 1px dashed var(--x-line);
+}
+.vp-doc .mmap-leaves li {
+  position: relative;
+  padding: 1px 0 1px 10px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--x-muted);
+}
+.vp-doc .mmap-leaves li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 7px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--mm);
+  opacity: 0.6;
+}
+
 /* ---------- 行内代码 ----------
  * 原文件用的是 <code class="inline">。.vp-doc 对行内代码本来就有样式，
  * 这里只补字距和颜色微调，不去覆盖主题的底色，避免和代码块风格脱节。

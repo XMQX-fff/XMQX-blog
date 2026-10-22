@@ -1,14 +1,5 @@
 # LangChain 学习笔记
 
-本栏目依据 [langchain-doc.cn](https://langchain-doc.cn/) （LangChain 中文社区文档，覆盖 v1.x）整理而成，
-旨在以一条连贯的主线覆盖 LangChain v1 的核心概念，而非逐页翻译。
-
-::: warning 关于准确性
-笔记基于撰写时的文档版本。LangChain v1 对链与智能体作了大规模重构，
-`langchain.agents.create_agent`、标准内容块等均为 v1 引入的接口；
-具体 API 请以[官方文档](https://langchain-doc.cn/)为准。
-:::
-
 ## 本栏目怎么读
 
 - 每篇都遵循同一结构：**是什么 → 解决什么问题 → 完整可运行例子 → 预期输出**；

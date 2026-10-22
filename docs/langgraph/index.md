@@ -1,13 +1,5 @@
 # LangGraph 学习笔记
 
-本栏目依据 [langgraph.com.cn](https://langgraph.com.cn/) （LangGraph 官方文档中文站）整理而成，
-并非逐句翻译，而是对核心概念的重新梳理与结构化归纳。
-
-::: warning 关于准确性
-笔记基于撰写时的文档版本。LangGraph 迭代较快（尤其是 `langgraph.prebuilt` 相关接口），
-具体 API 请以[官方文档](https://langgraph.com.cn/)为准。
-:::
-
 ## 栏目内容
 
 | 文章 | 主题 | 适用读者 |

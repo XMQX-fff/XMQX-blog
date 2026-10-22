@@ -48,12 +48,11 @@ AGENTNOVEL_DROP_BLOCKS = [
     (re.compile(r"<script\b.*?</script>", re.S | re.I), "script"),
 ]
 
-# AgentNovel 八篇文档在博客里的落点：正文互链按这张表改写成站点路由
+# AgentNovel 七篇文档在博客里的落点：正文互链按这张表改写成站点路由
 AGENTNOVEL_ROUTES = {
     "index.html": "/agentnovel/",
     "graph.html": "/agentnovel/graph",
     "rag.html": "/agentnovel/rag",
-    "guardrails.html": "/agentnovel/guardrails",
     "guardrails-report.html": "/agentnovel/guardrails-report",
     "hitl.html": "/agentnovel/hitl",
     "deai.html": "/agentnovel/deai",

@@ -56,7 +56,7 @@ outline: [2, 3]
 <tbody>
 <tr>
 <td>
-生成前能对齐，而不是生成后再推翻</td>
+生成前先对齐，避免生成后再推翻</td>
 <td>
 阶段确认门禁（<code>kind=confirm</code>）</td>
 </tr>
@@ -99,9 +99,9 @@ checkpoint 落 TiDB</td>
 <strong>恢复</strong>：API 用 <code>Command(resume=decision)</code> 重新驱动图。</p>
 <blockquote>
 <p>
-<strong>核心语义（最易误解的一点）</strong>：恢复时节点函数<strong>从头重新执行一遍</strong>，直到再次运行到 <code>interrupt()</code> 那一行——第二次调用不再抛异常，而是直接返回注入的 <code>decision</code>。</p>
+<strong>核心语义（最易误解的一点）</strong>：恢复时节点函数<strong>从头重新执行一遍</strong>，直到再次运行到 <code>interrupt()</code> 那一行——第二次调用直接返回注入的 <code>decision</code>，不再抛异常。</p>
 </blockquote>
-<div class="srcline">novelcraft/app/core/nodes.py:2216-2222</div><pre><code>    decision = interrupt({
+<div class="srcline">novelcraft/app/core/nodes.py:1911-1917</div><pre><code>    decision = interrupt({
         &quot;kind&quot;: &quot;confirm&quot;,
         &quot;stage&quot;: stage,
         &quot;round&quot;: round_no,
@@ -114,7 +114,7 @@ checkpoint 落 TiDB</td>
 resume 后：重新读 State → 重新从 sidecar 拉讨论日志 → 重建 brief → 这一行直接返回决策。</p>
 <h3 id="22-重放语义带来的约束">2.2 重放语义带来的约束</h3><p>
 因为节点是重放的，<strong>跨轮状态只能存在两个地方</strong>：State 字段，或 resume 回传的数据。</p>
-<div class="srcline">novelcraft/app/core/nodes.py:2205-2232</div><pre><code>    round_no = int(gate.get(&quot;round&quot;, 0)) + 1          # 轮次只能从 State 推算
+<div class="srcline">novelcraft/app/core/nodes.py:1900-1927</div><pre><code>    round_no = int(gate.get(&quot;round&quot;, 0)) + 1          # 轮次只能从 State 推算
     discussion_id = gate.get(&quot;discussion_id&quot;) or sidecar.new_discussion_id()
     ...
     echoed = decision.get(&quot;discussion_id&quot;)            # discussion_id 由前端原样回传
@@ -126,7 +126,7 @@ resume 后：重新读 State → 重新从 sidecar 拉讨论日志 → 重建 br
 同样地，<code>brief</code> 每次重放都会用最新的 State + 最新的讨论日志重建，因此作者讨论出来的内容能反映到新一轮门禁卡上。</p>
 <h3 id="23-命名约束">2.3 命名约束</h3><p>
 节点名 <code>gate</code> 与 State 字段 <code>stage_gate</code> 不同名，是因为 <strong>LangGraph 限制节点名不能与 State 键同名</strong>：</p>
-<div class="srcline">novelcraft/app/core/nodes.py:2298-2301</div><pre><code>NODES = {
+<div class="srcline">novelcraft/app/core/nodes.py:1993-1996</div><pre><code>NODES = {
     &quot;router&quot;: router_node,
     # 注意：节点名不能与 State 键同名（LangGraph 限制），故节点叫 gate，State 字段叫 stage_gate
     &quot;gate&quot;: stage_gate_node,
@@ -175,20 +175,15 @@ kind</th>
 <tr>
 <td>
 <code>question</code></td>
-<td>
-生成节点内</td>
-<td>
-生成中追问</td>
-<td>
-<code>POST /projects/{id}/resume</code></td>
+<td colspan="3"><small>保留兼容代码：事件构造函数（<code>interrupt_question_event</code>）与 <code>/resume</code> 的 <code>action=answer</code> 分支都还在，但 <b>没有任何节点发出 <code>kind=question</code></b>——当前图只有 <code>confirm</code> 与 <code>review</code> 两个挂起点。</small></td>
 <td>
 同上</td>
 </tr>
 </tbody>
 </table></div>
-<div class="srcline">novelcraft/app/core/nodes.py:1868-1872</div><pre><code># 需要「先对齐再创作」的阶段；reviewing / polishing 是对产物的加工，不设门禁
+<div class="srcline">novelcraft/app/core/nodes.py:1847-1848 · novelcraft/app/core/prompts.py:322-323</div><pre><code># nodes.py:1848 —— 需要「先对齐再创作」的阶段；reviewing / polishing 是对产物的加工，不设门禁
 STAGE_GATES = {&quot;worldbuilding&quot;, &quot;character&quot;, &quot;outline&quot;, &quot;writing&quot;}
-# 门禁轮次软上限：超过后仍要求确认，只在 tips 中提示可直接确认
+# prompts.py:323 —— 门禁轮次软上限：超过后仍要求确认，只在 tips 中提示可直接确认
 GATE_MAX_ROUNDS = 5
 </code></pre>
 <h3 id="32-kindconfirm阶段确认门禁">3.2 <code>kind=confirm</code>：阶段确认门禁</h3><p>
@@ -271,7 +266,7 @@ GATE_MAX_ROUNDS = 5
 </table></div>
 <p>
 <strong>恢复后的行为</strong>：</p>
-<div class="srcline">novelcraft/app/core/nodes.py:2246-2259</div><pre><code>    updates: Dict[str, Any] = {
+<div class="srcline">novelcraft/app/core/nodes.py:1941-1953</div><pre><code>    updates: Dict[str, Any] = {
         &quot;stage_gate&quot;: {
             **gate, &quot;stage&quot;: stage, &quot;round&quot;: round_no,
             &quot;confirmed&quot;: confirmed, &quot;brief&quot;: brief,
@@ -282,7 +277,7 @@ GATE_MAX_ROUNDS = 5
 </code></pre>
 <p>
 确认时按勾选结果登记伏笔与新角色，并清空临时计划字段：</p>
-<div class="srcline">novelcraft/app/core/nodes.py:2269-2293</div><pre><code>            updates[&quot;foreshadow&quot;] = _apply_foreshadow_plan(state, eff, co, cur_idx)
+<div class="srcline">novelcraft/app/core/nodes.py:1966-1988</div><pre><code>            updates[&quot;foreshadow&quot;] = _apply_foreshadow_plan(state, eff, co, cur_idx)
         updates[&quot;chapter_foreshadow_plan&quot;] = {}
         ...
             updates[&quot;character_settings&quot;] = _apply_new_characters(state, eff_nc, cur_idx)
@@ -292,14 +287,14 @@ GATE_MAX_ROUNDS = 5
 未回传 <code>foreshadow</code> / <code>characters</code>（旧客户端）时<strong>视为全选</strong>，保持兼容。</p>
 <h3 id="33-kindreview人工审核">3.3 <code>kind=review</code>：人工审核</h3><p>
 <strong>payload</strong>：</p>
-<div class="srcline">novelcraft/app/core/nodes.py:1633-1642</div><pre><code>    payload = {
+<div class="srcline">novelcraft/app/core/nodes.py:1567-1576</div><pre><code>    payload = {
         &quot;kind&quot;: &quot;review&quot;,
         &quot;stage&quot;: stage,
         &quot;project_id&quot;: state[&quot;project_id&quot;],
         &quot;chapter_id&quot;: chapter_id,
         &quot;chapter_index&quot;: idx,
         &quot;issues&quot;: findings,
-        # 单独下发，供前端以&quot;你上一轮提的要求&quot;而不是&quot;AI 审核问题&quot;的身份展示
+        # 单独下发，按&quot;你上一轮提的要求&quot;的口径展示
         &quot;rejected_feedback&quot;: rejected_feedback,
     }
 </code></pre>
@@ -321,7 +316,7 @@ action</th>
 <td>
 <code>approve</code></td>
 <td>
-推进 <code>current_stage</code>、清空 <code>review_issues</code>、同步章节 status 到 outline、定稿入库</td>
+推进 <code>current_stage</code>、清空 <code>review_issues</code>、同步章节 status；<b>仅 <code>reviewing</code> / <code>polishing</code> 阶段通过才定稿入库</b>（<code>writing</code> 阶段只是确认草稿，不索引）</td>
 </tr>
 <tr>
 <td>
@@ -337,7 +332,7 @@ action</th>
 </tr>
 </tbody>
 </table></div>
-<div class="srcline">novelcraft/app/core/nodes.py:1670-1678</div><pre><code>        # v1.5（J2）：通过时推进 current_stage，交回 router 统一分发（含阶段门禁）
+<div class="srcline">novelcraft/app/core/nodes.py:1626-1634</div><pre><code>        # v1.5（J2）：通过时推进 current_stage，交回 router 统一分发（含阶段门禁）
         nxt = STAGE_FLOW.get(stage)
         # J16：润色是**可选工序** —— 审核通过时未明确要求润色（decision.polish）就跳过
         if stage == &quot;reviewing&quot; and not decision.get(&quot;polish&quot;):
@@ -347,7 +342,7 @@ action</th>
 </code></pre>
 <p>
 <strong>状态推进与定稿入库</strong>：</p>
-<div class="srcline">novelcraft/app/core/nodes.py:1695-1708</div><pre><code>        if stage in (&quot;writing&quot;, &quot;reviewing&quot;, &quot;polishing&quot;) and chapter_id and idx &lt; len(chapters) and not polish_applied:
+<div class="srcline">novelcraft/app/core/nodes.py:1651-1663</div><pre><code>        if stage in (&quot;writing&quot;, &quot;reviewing&quot;, &quot;polishing&quot;) and chapter_id and idx &lt; len(chapters) and not polish_applied:
             new_status = {&quot;writing&quot;: &quot;draft&quot;, &quot;reviewing&quot;: &quot;reviewed&quot;, &quot;polishing&quot;: &quot;reviewed&quot;}[stage]
             ...
         if stage in (&quot;reviewing&quot;, &quot;polishing&quot;):
@@ -355,15 +350,16 @@ action</th>
 </code></pre>
 <p>
 <strong>润色候选（J15）</strong>：polishing 阶段只产出候选，不改正文。作者在「左原文 / 右润色」对比视图确认后才落盘；<code>discard_polish=true</code> 则保留原文。</p>
-<h3 id="34-kindquestion生成中追问">3.4 <code>kind=question</code>：生成中追问</h3><p>
-事件构造函数存在，恢复走 <code>/resume</code> 的 <code>action=answer</code> 分支：</p>
-<div class="srcline">novelcraft/app/api/routers/creation.py:382-385</div><pre><code>    action = request.action or (&quot;answer&quot; if request.answer is not None else &quot;confirm&quot;)
+<h3 id="34-kindquestion生成中追问">3.4 <code>kind=question</code>：生成中追问（<b>当前无调用点</b>）</h3><p>
+事件构造函数 <code>interrupt_question_event()</code> 与恢复走 <code>/resume</code> 的 <code>action=answer</code> 分支都还在，
+但 <code>nodes.py</code> 全文只有两处 <code>interrupt()</code>（<code>kind=review</code> 与 <code>kind=confirm</code>），没有任何节点发出 <code>kind=question</code>：</p>
+<div class="srcline">novelcraft/app/api/routers/creation.py:414-417</div><pre><code>    action = request.action or (&quot;answer&quot; if request.answer is not None else &quot;confirm&quot;)
     if action == &quot;answer&quot;:
         # kind=question 的 interrupt 恢复需返回 {&quot;data&quot;: ...}
         resume_data: Dict[str, Any] = {&quot;data&quot;: request.answer or &quot;&quot;}
 </code></pre>
 <hr />
-<h2 id="4-状态机与路由">4. 状态机与路由</h2><h3 id="41-阶段流转">4.1 阶段流转</h3><div class="srcline">novelcraft/app/core/nodes.py:1859-1866</div><pre><code>STAGE_FLOW = {
+<h2 id="4-状态机与路由">4. 状态机与路由</h2><h3 id="41-阶段流转">4.1 阶段流转</h3><div class="srcline">novelcraft/app/core/nodes.py:1838-1845</div><pre><code>STAGE_FLOW = {
     &quot;worldbuilding&quot;: &quot;character&quot;,
     &quot;character&quot;: &quot;outline&quot;,
     &quot;outline&quot;: &quot;writing&quot;,
@@ -373,10 +369,10 @@ action</th>
 }
 </code></pre>
 <h3 id="42-router-是唯一分发点">4.2 <code>router</code> 是唯一分发点</h3><p>
-覆盖四条路径：首次进入 / 阶段推进 / 下一章 / 完成态恢复。这样门禁才能无遗漏地覆盖每个创作阶段（J2）。<code>human_review</code> 与 <code>next_chapter</code> 都不再直连阶段节点，而是设好 <code>current_stage</code> 后回 <code>router</code>。</p>
+覆盖四条路径：首次进入 / 阶段推进 / 下一章 / 完成态恢复。这样门禁才能无遗漏地覆盖每个创作阶段（J2）。<code>human_review</code> 与 <code>next_chapter</code> 都改为设好 <code>current_stage</code> 后回 <code>router</code>，不再直连阶段节点。</p>
 <p>
-图接线见 <code>novelcraft/app/core/graph.py:99-135</code>。</p>
-<h3 id="43-门禁作用域按章-按卷">4.3 门禁作用域：按章 / 按卷</h3><div class="srcline">novelcraft/app/core/nodes.py:2159-2172</div><pre><code>def _gate_scope_changed(gate, stage, state) -&gt; bool:
+图接线见 <code>novelcraft/app/core/graph.py:89-143</code>。</p>
+<h3 id="43-门禁作用域按章-按卷">4.3 门禁作用域：按章 / 按卷</h3><div class="srcline">novelcraft/app/core/nodes.py:1854-1867</div><pre><code>def _gate_scope_changed(gate, stage, state) -&gt; bool:
     &quot;&quot;&quot;写作按章、大纲按卷确认：章/卷推进后，已确认的门禁不再适用（需重新确认）。&quot;&quot;&quot;
     if stage == &quot;writing&quot;:
         return gate.get(&quot;chapter_index&quot;) != state.get(&quot;current_chapter_index&quot;, 0)
@@ -459,7 +455,19 @@ LLM token 增量，<code>target</code> 决定落在哪个面板：<code>editor</
 <td>
 <code>interrupt</code></td>
 <td>
-挂起卡，<code>kind</code> = <code>confirm</code> / <code>review</code> / <code>question</code></td>
+挂起卡，<code>kind</code> = <code>confirm</code> / <code>review</code>（<code>question</code> 的构造函数存在但无调用点，见 §3.4）</td>
+</tr>
+<tr>
+<td>
+<code>revised</code> / <code>applied</code></td>
+<td>
+低成本修改通道（<code>/revise-field</code>、<code>/revise-chapter</code>）的产出 / 写回确认，见 §8</td>
+</tr>
+<tr>
+<td>
+<code>sources</code> / <code>suggestion</code> / <code>discuss</code></td>
+<td>
+旁路讨论（<code>/discuss</code>）的引用卡、建议卡与会话帧</td>
 </tr>
 <tr>
 <td>
@@ -472,11 +480,11 @@ LLM token 增量，<code>target</code> 决定落在哪个面板：<code>editor</
 <p>
 <strong>interrupt 帧</strong>：</p>
 <pre><code class="language-json">{&quot;type&quot;:&quot;interrupt&quot;,&quot;kind&quot;:&quot;confirm&quot;,&quot;payload&quot;:{&quot;stage&quot;:&quot;writing&quot;,&quot;round&quot;:1,&quot;discussion_id&quot;:&quot;d_x&quot;,&quot;brief&quot;:{...}}}
-{&quot;type&quot;:&quot;interrupt&quot;,&quot;kind&quot;:&quot;review&quot;,&quot;payload&quot;:{&quot;stage&quot;:&quot;reviewing&quot;,&quot;chapter_id&quot;:&quot;ch_0004&quot;,&quot;issues&quot;:[...],&quot;content&quot;:{...},&quot;rejected_feedback&quot;:[...]}}
+{&quot;type&quot;:&quot;interrupt&quot;,&quot;kind&quot;:&quot;review&quot;,&quot;payload&quot;:{&quot;stage&quot;:&quot;reviewing&quot;,&quot;chapter_id&quot;:&quot;ch_0004&quot;,&quot;issues&quot;:[...],&quot;content&quot;:{...},&quot;polish_candidate&quot;:{...}}}
 </code></pre>
 <h3 id="62-payload-必须从-interrupt-任务里取">6.2 payload 必须从 interrupt 任务里取</h3><p>
 首轮 interrupt 的 payload <strong>不落 checkpoint</strong>，所以不能只读 <code>state.values</code>：</p>
-<div class="srcline">novelcraft/app/api/routers/creation.py:204-217</div><pre><code>            intr_payload: Dict[str, Any] = {}
+<div class="srcline">novelcraft/app/api/routers/creation.py:220-233</div><pre><code>            intr_payload: Dict[str, Any] = {}
             for t in (getattr(state, &quot;tasks&quot;, None) or []):
                 for i in (getattr(t, &quot;interrupts&quot;, None) or []):
                     if isinstance(getattr(i, &quot;value&quot;, None), dict):
@@ -530,7 +538,7 @@ LLM token 增量，<code>target</code> 决定落在哪个面板：<code>editor</
 <td>
 <code>POST /discuss</code></td>
 <td>
-<code>{message, scope?, target_id?, refs?, discussion_id?}</code></td>
+<code>{message, scope?, target_id?, refs?, discussion_id?, checkpoint_id?, command?}</code></td>
 <td>
 旁路讨论（不写 checkpoint）</td>
 </tr>
@@ -538,7 +546,7 @@ LLM token 增量，<code>target</code> 决定落在哪个面板：<code>editor</
 <td>
 <code>POST /revise-field</code></td>
 <td>
-<code>{field, instruction, target_ids?, apply?}</code></td>
+<code>{field, instruction, target_ids?, discussion_id?, apply?}</code></td>
 <td>
 局部改字段</td>
 </tr>
@@ -553,7 +561,7 @@ LLM token 增量，<code>target</code> 决定落在哪个面板：<code>editor</
 </tbody>
 </table></div>
 <p>
-<code>force=true</code>（J27）用于「重新生成本章」，只对本次 run 的首次写作有效，走进程内信号而非 State。</p>
+<code>force=true</code>（J27）用于「重新生成本章」，只对本次 run 的首次写作有效，走进程内信号，不落 State。</p>
 <hr />
 <h2 id="7-旁路讨论门禁的多轮对话">7. 旁路讨论：门禁的多轮对话</h2><p>
 作者在门禁卡上可以来回讨论 N 轮，但<strong>这些对话不进图</strong>。</p>
@@ -593,7 +601,7 @@ log_key</th>
 <strong>为什么要旁路</strong>：每次 interrupt 都是一个 checkpoint，若多轮讨论也走 interrupt，checkpoint 会随讨论轮次堆积；且讨论内容进入创作 State 会污染后续生成。旁路后，门禁只承载「最终确认」这一个动作。</p>
 <p>
 <strong>门禁如何读到讨论内容</strong>：<code>stage_gate_node</code> 重放时从 sidecar 拉最近 20 条重建 brief：</p>
-<div class="srcline">novelcraft/app/core/nodes.py:2208-2214</div><pre><code>    recent: List[Dict[str, Any]] = []
+<div class="srcline">novelcraft/app/core/nodes.py:1903-1909</div><pre><code>    recent: List[Dict[str, Any]] = []
     try:
         recent = sidecar.discussion_log(pid, discussion_id).read(limit=20)
     except Exception:
@@ -635,7 +643,7 @@ log_key</th>
 </table></div>
 <p>
 <code>apply=true</code> 时挂起在门禁的节点归属处理：</p>
-<div class="srcline">novelcraft/app/api/routers/creation.py:466-471</div><pre><code>            at_gate = &quot;gate&quot; in next_nodes
+<div class="srcline">novelcraft/app/api/routers/creation.py:508-513</div><pre><code>            at_gate = &quot;gate&quot; in next_nodes
             writer = N.FIELD_WRITER_NODE.get(request.field, &quot;router&quot;)
             # 挂起在门禁时以 router 身份写：router 仍会返回 gate，门禁不丢
             as_node = &quot;router&quot; if at_gate else writer
@@ -648,7 +656,7 @@ checkpoint 落 TiDB（自研 <code>TiDBSaver</code>，因为官方 mysql saver �
 <li>
 挂起时长不受限，进程重启后可恢复</li>
 <li>
-每个挂起点天然可回溯（见 <code>retention.py</code>：里程碑永久保留 + 最近 200 步级）</li>
+每个挂起点天然可回溯（见 <code>retention.py</code>：里程碑永久保留 + 最近 20 步级，取值来自 <code>settings.checkpoint_keep_recent</code>）</li>
 </ul>
 <h3 id="92-并发纪律">9.2 并发纪律</h3><div class="srcline">novelcraft/app/api/in_flight.py:1-5</div><pre><code>核心：只有「/run 流式响应正在进行」才算&quot;图运行中&quot;。
 图停在 human_review 中断（流已结束、前端已收到 interrupt）属于静止态，允许裸 PUT /state。
@@ -663,7 +671,7 @@ checkpoint 落 TiDB（自研 <code>TiDBSaver</code>，因为官方 mysql saver �
 </ul>
 <h3 id="93-停在未知节点-异常">9.3 停在未知节点 = 异常</h3><p>
 停在既非 <code>gate</code> 也非 <code>human_review</code> 的节点（最常见：LLM 连接失败导致节点抛错、图原地等待重试）没有任何卡片可操作：</p>
-<div class="srcline">novelcraft/app/api/routers/creation.py:236-246</div><pre><code>        else:
+<div class="srcline">novelcraft/app/api/routers/creation.py:251-262</div><pre><code>        else:
             # J30：停在**其他**节点既没有人审/门禁卡片可操作，也不是正常结束。
             # 最常见的是节点执行失败后图原地暂停（例如 LLM 连接错误 APIConnectionError：
             # 节点抛错 → 图停在那个节点等待重试）。此前这里什么都不发，前端 phase 会
@@ -689,7 +697,7 @@ checkpoint 落 TiDB（自研 <code>TiDBSaver</code>，因为官方 mysql saver �
 <strong>问题</strong>：驳回时写入的 ReviewIssue 会混进下一轮下发的 <code>issues</code>，前端把作者自己的话回显成「AI 发现的严重问题」，作者看到「1 个问题：角色数量不变…」以为根本没改。</p>
 <p>
 <strong>处理</strong>：</p>
-<div class="srcline">novelcraft/app/core/nodes.py:1628-1631</div><pre><code>    findings = [
+<div class="srcline">novelcraft/app/core/nodes.py:1562-1565</div><pre><code>    findings = [
         i for i in all_issues if not (isinstance(i, dict) and i.get(&quot;rejected&quot;))
     ]
     rejected_feedback = _rejected_feedbacks(state)
@@ -751,9 +759,9 @@ checkpoint 落 TiDB（自研 <code>TiDBSaver</code>，因为官方 mysql saver �
 </tr>
 <tr>
 <td>
-<strong><code>kind=question</code> 使用较少</strong></td>
+<strong><code>kind=question</code> 无调用点</strong></td>
 <td>
-事件构造函数与恢复分支都在，但主流程主要依赖 <code>confirm</code> 与 <code>review</code></td>
+事件构造函数与 <code>/resume</code> 的 <code>action=answer</code> 分支都还在，但没有任何节点发出 <code>kind=question</code>——挂起点实际只有 <code>confirm</code> 与 <code>review</code></td>
 </tr>
 </tbody>
 </table></div>

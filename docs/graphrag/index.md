@@ -8,6 +8,8 @@
 | --- | --- | --- |
 | [从入门到理解（初学者教程）](/graphrag/nano-graphrag-tutorial) | **由浅入深的课**：先讲清"为什么需要 GraphRAG"，再用同一个例子走完写入与查询全流程，每课有要点总结 | 没接触过 RAG / 知识图谱的初学者 |
 | [源码深度解析（参考手册）](/graphrag/nano-graphrag-source-analysis) | **工具书式手册**：架构分层、模块细节、关键设计决策、源码文件地图 | 已想通原理、要抠实现细节的进阶读者 |
+| [从入门到理解 · 思维脑图](/graphrag/nano-graphrag-tutorial-mindmap) | **教程的结构图**：五篇二十讲的主题骨架与每讲要点 | 想先看全局、决定从哪讲读起 |
+| [源码深度解析 · 思维脑图](/graphrag/nano-graphrag-source-analysis-mindmap) | **手册的结构图**：十二章的模块地图与关键机制 | 准备动手读源码、想定位到具体文件 |
 
 ## 推荐学习路线
 
@@ -30,8 +32,8 @@
 
 ## 快速入口
 
-- 🟢 **初学**：[从入门到理解 →](/graphrag/nano-graphrag-tutorial)
-- 🔵 **进阶**：[源码深度解析 →](/graphrag/nano-graphrag-source-analysis)
+- 🟢 **初学**：[从入门到理解 →](/graphrag/nano-graphrag-tutorial) · [教程脑图 →](/graphrag/nano-graphrag-tutorial-mindmap)
+- 🔵 **进阶**：[源码深度解析 →](/graphrag/nano-graphrag-source-analysis) · [手册脑图 →](/graphrag/nano-graphrag-source-analysis-mindmap)
 - 📦 **原仓库**：[github.com/gusye1234/nano-graphrag](https://github.com/gusye1234/nano-graphrag)
 
 ::: tip 后续计划

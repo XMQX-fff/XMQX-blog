@@ -9,7 +9,7 @@ outline: [2, 3]
     <div class="eyebrow">State Machine · HITL · Time Travel</div>
     <h1 id="langgraph-在本系统里的设计">LangGraph 在本系统里的设计</h1>
     <p class="lead">
-      这不是 LangGraph 教程，而是<strong>NovelCraft AI 为什么这样接线</strong>：
+      这篇文档讲的是<strong>NovelCraft AI 为什么这样接线</strong>：
       为什么所有入口都要经过一个 <code>router</code>、为什么阶段门禁和人审是两种不同的挂起、
       为什么正文要挪出 State、哪些坑是 LangGraph 自身的限制逼出来的。
       每节都按「遇到什么问题 → 现在怎么做 → 不这么做会怎样」展开。
@@ -23,11 +23,11 @@ outline: [2, 3]
       <span class="badge">单进程 uvicorn</span>
     </div>
     <div class="stats">
-      <div class="stat"><b>13</b><small>图节点</small></div>
+      <div class="stat"><b>12</b><small>图节点</small></div>
       <div class="stat"><b>1</b><small>分发点（router）</small></div>
       <div class="stat"><b>2</b><small>interrupt 类型</small></div>
       <div class="stat"><b>6</b><small>创作阶段</small></div>
-      <div class="stat"><b>200</b><small>步级快照保留</small></div>
+      <div class="stat"><b>20</b><small>步级快照保留</small></div>
       <div class="stat"><b>1</b><small>唯一状态源（TiDB）</small></div>
     </div>
   </div>
@@ -38,7 +38,7 @@ outline: [2, 3]
     <div class="eyebrow">01 · Motivation</div>
     <h2 id="why">为什么用 LangGraph：一个"写小说"的流程图</h2>
     <p class="lead">
-      这类系统的难点从来不是"调一次大模型"，而是<b>控制流</b>：什么时候该等人、等人回来之后从哪继续、
+      这类系统的难点在于<b>控制流</b>：什么时候该等人、等人回来之后从哪继续、
       上一章写的东西怎么留给下一章、以及怎么在写坏之后退回上一步。这些正好是状态机擅长的事。
     </p>
     <h3 id="why-2">如果不用状态机会是什么样</h3>
@@ -61,14 +61,14 @@ outline: [2, 3]
       <li><b>挂起必须是"真挂起"</b><span>图跑到一半要把控制权交回 HTTP 请求，作者可能几分钟后才点确认。
       进程不能因为这次等待而占着。</span></li>
       <li><b>恢复必须精确</b><span>作者驳回"这一章"时，要回到<b>这一章</b>的写作节点，
-      而不是从头再跑一遍世界观和人设。</span></li>
+      世界观与人设不必重跑。</span></li>
       <li><b>状态不能太大</b><span>一整章正文 6000+ 字 × N 章，全量进 State 会让每个 checkpoint
       都变成一份全文快照。</span></li>
     </div>
-    <p>后面 12 节讲的就是这三个要求各自怎么被满足，以及为此付出了什么代价。</p>
+    <p>后面 13 节讲的就是这三个要求各自怎么被满足，以及为此付出了什么代价。</p>
     <div class="note i"><b>💡 一句话概括</b><div>
-      LangGraph 在这里<b>不是</b>为了"编排 AI 调用"，而是为了<b>让"人在回路"这件事变成图上的一等公民</b>——
-      挂起、恢复、回退都是状态机的原生能力，而不是业务代码里手搓的流程控制。
+      LangGraph 在这里的作用是<b>让"人在回路"变成图上的一等公民</b>——
+      挂起、恢复、回退都由状态机原生支持，业务代码里不用手搓流程控制。
     </div></div>
   </div>
 </section>
@@ -76,7 +76,7 @@ outline: [2, 3]
 <section id="shape">
   <div class="wrap">
     <div class="eyebrow">02 · Graph Shape</div>
-    <h2 id="shape">全图形状：13 个节点，6 个阶段，1 个分发点</h2>
+    <h2 id="shape">全图形状：12 个节点，6 个阶段，1 个分发点</h2>
     <div class="diagram">
       <div class="flow" style="padding-top:22px">
         <div class="node plain">START</div>
@@ -122,17 +122,17 @@ outline: [2, 3]
             <td><b>控制节点</b></td>
             <td><code>router</code> <code>gate</code> <code>chapter_outline</code>
                 <code>human_review</code> <code>next_chapter</code> <code>recover</code></td>
-            <td>条件边（<code>add_conditional_edges</code>）</td>
+            <td>条件边（router / gate / human_review / next_chapter）<br><small>+ 无条件边：recover→router、chapter_outline→gate</small></td>
           </tr>
         </tbody>
       </table>
     </div>
     <p>
       阶段节点<b>无条件</b>连到 <code>human_review</code>（<code>graph.py:115-116</code>）：
-      任何阶段产物都必须经人审才能往下走，这是本系统的硬约束，写在图里而不是靠每个节点自觉。
+      任何阶段产物都必须经人审才能往下走，这是本系统的硬约束，由图的接线保证，无需每个节点自觉。
     </p>
     <h3 id="shape-8">阶段流转表唯一定义在 nodes.py</h3>
-    <pre><span class="c"># app/core/nodes.py:2098</span>
+    <pre><span class="c"># app/core/nodes.py:1838（STAGE_GATES 在 :1848）</span>
 STAGE_FLOW = {
     <span class="s">"worldbuilding"</span>: <span class="s">"character"</span>,
     <span class="s">"character"</span>:     <span class="s">"outline"</span>,
@@ -143,15 +143,18 @@ STAGE_FLOW = {
 }
 <span class="c"># 需要「先对齐再创作」的阶段；reviewing/polishing 是对产物的加工，不设门禁</span>
 STAGE_GATES = {<span class="s">"worldbuilding"</span>, <span class="s">"character"</span>, <span class="s">"outline"</span>, <span class="s">"writing"</span>}</pre>
-    <div class="note w"><b>⚠ 为什么流转表放在 nodes.py 而不是 graph.py</b><div>
+    <div class="note w"><b>⚠ 流转表为什么放在 nodes.py</b><div>
       <code>graph.py</code> 需要引用 <code>STAGE_FLOW</code>，而 <code>nodes.py</code> 又要引用图的节点名——
       放<em>哪边都会形成循环导入</em>。最终统一放<code>nodes.py</code>，由 <code>graph.py</code> 单向 import。
       同理 J25 的分卷推进判定也放 nodes.py，避免"图里一份、节点里一份"口径漂移。
     </div></div>
     <h3 id="shape-9">阶段名 ≠ 节点名</h3>
-    <pre><span class="c"># graph.py:18-29</span>
+    <pre><span class="c"># graph.py:18-26（节选，其余三阶段同名）</span>
 STAGE_TO_NODE = {
     <span class="s">"worldbuilding"</span>: <span class="s">"worldbuilding"</span>,
+    <span class="s">"writing"</span>:       <span class="s">"writing"</span>,        <span class="c"># 同名</span>
+    <span class="s">"reviewing"</span>:     <span class="s">"reviewing"</span>,      <span class="c"># 同名</span>
+    <span class="s">"polishing"</span>:     <span class="s">"polishing"</span>,      <span class="c"># 同名</span>
     <span class="s">"character"</span>:     <span class="s">"character_gen"</span>,   <span class="c"># ← 不一样</span>
     <span class="s">"outline"</span>:       <span class="s">"outline_gen"</span>,<span class="c">#     不一样</span>
     <span class="s">"completed"</span>:     <span class="s">"_completed"</span>,      <span class="c"># ← 伪节点，router 特殊处理</span>
@@ -240,7 +243,7 @@ NODE_TO_STAGE = {v: k for k, v in STAGE_TO_NODE.items()}   <span class="c"># 反
     <h2 id="gate">阶段门禁：把"先对齐再创作"做成图的结构</h2>
     <p class="lead">
       <code>STAGE_GATES</code> 圈定了四个需要<b>先与作者对齐</b>的阶段。
-      它们不是靠"在某处判断一下"，而是<b>作为图上的一类节点存在</b>。
+      它们被实现为<b>图上的一类节点</b>。
     </p>
     <h3 id="gate-16">门禁节点的行为</h3>
     <pre><span class="c"># graph.py:67 · 门禁放行 → 真实生成；未确认 → 自环</span>
@@ -262,7 +265,7 @@ NODE_TO_STAGE = {v: k for k, v in STAGE_TO_NODE.items()}   <span class="c"># 反
         <tbody>
           <tr><td><code>worldbuilding</code> 世界观</td><td style="color:var(--ok)">✓</td><td>全书一致性的地基，值得先对齐</td></tr>
           <tr><td><code>character</code> 人设</td><td style="color:var(--ok)">✓</td><td>同上，且角色设定会被直塞进每章 prompt</td></tr>
-          <tr><td><code>outline</code> 大纲</td><td style="color:var(--ok)">✓</td><td>按<b>卷</b>确认，不是每章都问</td></tr>
+          <tr><td><code>outline</code> 大纲</td><td style="color:var(--ok)">✓</td><td>按<b>卷</b>确认，一个卷问一次</td></tr>
           <tr><td><code>writing</code> 正文</td><td style="color:var(--ok)">✓</td><td>按<b>章</b>确认（就章纲探讨）</td></tr>
           <tr><td><code>reviewing</code> 审核</td><td style="color:var(--danger)">✗</td><td>它是对<b>已有产物</b>的检查，门禁在这里没有对象</td></tr>
           <tr><td><code>polishing</code> 润色</td><td style="color:var(--danger)">✗</td><td>同上；而且它是<b>可选工序</b>（见下）</td></tr>
@@ -310,14 +313,14 @@ NODE_TO_STAGE = {v: k for k, v in STAGE_TO_NODE.items()}   <span class="c"># 反
           <tr><td><b>何时挂起</b></td><td>进入一个创作阶段<b>之前</b></td><td>每个阶段产物生成<b>之后</b></td></tr>
           <tr><td><b>作者看到什么</b></td><td>门禁卡：模板问题 + brief + 讨论历史</td><td>产物 + 审核问题 + 修改建议</td></tr>
           <tr><td><b>回答后</b></td><td><code>confirmed=True</code> → 放行进入阶段节点</td>
-              <td><code>approve</code> 推进阶段 / <code>rejected</code> <b>直连本阶段节点重跑</b></td></tr>
+              <td><code>approve</code> / <code>modify</code> 推进阶段 / <code>reject</code> <b>直连本阶段节点重跑</b></td></tr>
           <tr><td><b>会不会重跑</b></td><td>不会（只是问，然后开始写）</td><td><b>会</b>——驳回即重跑本阶段</td></tr>
           <tr><td><b>确认要重新问吗</b></td><td><b>要</b>：按章/卷作用域，下一章会再问</td><td>不需要</td></tr>
         </tbody>
       </table>
     </div>
     <h3 id="hitl-21">① 阶段门禁的 interrupt</h3>
-    <pre><span class="c"># nodes.py:2455 · stage_gate_node</span>
+    <pre><span class="c"># nodes.py:1870 · stage_gate_node</span>
 decision = interrupt({
     <span class="s">"kind"</span>: <span class="s">"confirm"</span>,
     <span class="s">"stage"</span>: stage,
@@ -331,8 +334,8 @@ decision = interrupt({
       否则门禁讨论会<b>断成两次无关的会话</b>，作者看到的历史凭空消失。
     </div></div>
     <h3 id="hitl-22">② 人审的 interrupt</h3>
-    <pre><span class="c"># nodes.py:1897 · human_review_node</span>
-decision = interrupt(payload)      <span class="c"># payload 含 content / review_issues / polish_candidate</span>
+    <pre><span class="c"># nodes.py:1544 · human_review_node</span>
+decision = interrupt(payload)      <span class="c"># payload 含 content / issues / rejected_feedback / polish_candidate</span>
 action = decision.get(<span class="s">"action"</span>, <span class="s">"approve"</span>)
 modifications = decision.get(<span class="s">"modifications"</span>, {})</pre>
     <p>人审节点负责把<b>三种决策</b>翻译成State 更新：</p>
@@ -340,14 +343,14 @@ modifications = decision.get(<span class="s">"modifications"</span>, {})</pre>
       <table>
         <thead><tr><th>action</th><th>效果</th></tr></thead>
         <tbody>
-          <tr><td><code>approve</code></td><td>推进 <code>current_stage</code>（跳过润色则直达下一章），交回 <code>router</code> 统一分发</td></tr>
-          <tr><td><code>rejected</code></td><td>写 <code>review_issues[].rejected=True</code> + 修改理由，<b>直连本阶段节点重跑</b></td></tr>
-          <tr><td>带 <code>modifications</code></td><td>把作者手工修改的结果合并进产物（<code>merge_dict</code>）</td></tr>
-          <tr><td><code>discard_polish</code></td><td>润色阶段：丢弃候选、保留原文</td></tr>
+          <tr><td><code>approve</code></td><td>推进 <code>current_stage</code>（reviewing 未要求润色则跳过，直达下一章），交回 <code>router</code> 统一分发</td></tr>
+          <tr><td><code>modify</code></td><td>把 <code>modifications</code> 里白名单字段（world_setting / character_settings / outline / chapters / foreshadow / project_meta / llm_config）过滤后写入，<b>并同样推进阶段</b>，不会驳回重跑</td></tr>
+          <tr><td><code>reject</code></td><td>写 <code>review_issues[].rejected=True</code> + 修改理由，<b>直连本阶段节点重跑</b></td></tr>
+          <tr><td><code>discard_polish</code></td><td>润色阶段：丢弃候选、保留原文（布尔字段，不单独占 action）</td></tr>
         </tbody>
       </table>
     </div>
-    <h3 id="hitl-23">驳回为什么"直连本阶段"而不是回 router</h3>
+    <h3 id="hitl-23">驳回为什么"直连本阶段"</h3>
     <pre><span class="c"># graph.py:75</span>
 <span class="k">def</span> <span class="n">route_after_human_review</span>(state) -&gt; str:
     <span class="k">if</span> any(i.get(<span class="s">"rejected"</span>) <span class="k">for</span> i in state.get(<span class="s">"review_issues"</span>, [])):
@@ -357,11 +360,11 @@ modifications = decision.get(<span class="s">"modifications"</span>, {})</pre>
     <span class="k">return</span> <span class="s">"router"</span></pre>
     <div class="note i"><b>💡 为什么驳回不重复门禁</b><div>
       门禁问的是"这一章要写什么"，<b>已经确认过了</b>。驳回的理由是"写出来不对"，
-      该做的是<b>重写</b>，不是<b>重新对齐方向</b>。让作者在每次驳回后都被重新问一遍
+      该做的是<b>重写</b>，方向不用重新对齐。让作者在每次驳回后都被重新问一遍
       方向，是把"修改"和"重做"混为一谈。
     </div></div>
     <h3 id="hitl-24">修改要求怎么传到下一轮生成</h3>
-    <pre><span class="c"># nodes.py:378 · _revision_feedback()</span>
+    <pre><span class="c"># prompts.py:41 · _revision_feedback()（nodes.py:38 仅 import）</span>
 <span class="k">return</span> (<span class="s">"【作者对上一版的修改要求——重新生成时必须逐条落实】\n"</span>
         + <span class="s">"\n"</span>.join(<span class="s">f"- {f}"</span> <span class="k">for</span> f <span class="k">in</span> feedbacks) + <span class="s">"\n\n"</span>)</pre>
     <p>
@@ -403,8 +406,9 @@ modifications = decision.get(<span class="s">"modifications"</span>, {})</pre>
     <h3 id="streaming-26">为什么不用 WebSocket</h3>
     <div class="note i"><b>💡 一个被约束逼出来的选择</b><div>
       <code>deploy/novelcraft-backend.service</code> 明确<b>禁止 <code>--workers &gt; 1</code></b>：
-      日志序号缓存与防重写守卫都假定"同一日志仅本进程写入"。单进程下 SSE（<code>text/event-stream</code>）
-      完全够用，而 WebSocket 会引入连接状态管理却换不来收益。<br>
+      日志序号缓存与防重写守卫都假定"同一日志仅本进程写入"。单进程下<b>一次性 HTTP 响应 + NDJSON 分块推送</b>
+      （<code>application/x-ndjson</code>，<code>proxy_buffering off</code>）完全够用，
+      而 WebSocket 会引入连接状态管理却换不来收益。<br>
       <b>推论</b>：任何"每个连接一份内存状态"的设计在本系统里都是不可行的——连接数上去就撑不住。
     </div></div>
     <h3 id="streaming-27">流式的一个已知坑</h3>
@@ -448,17 +452,20 @@ msgs.append(HumanMessage(content=<span class="s">f"第 {current_idx+1} 章《{ti
       沿用 <code>ORDER BY checkpoint_id DESC</code>——LangGraph 的 checkpoint_id 是<b>时间序 UUID</b>，
       <b>字典序即时间序</b>，不需要额外的自增列。
     </div></div>
-    <h3 id="checkpoint-30">保留策略：200 个步级快照</h3>
+    <h3 id="checkpoint-30">保留策略：最近 20 个步级快照</h3>
     <div class="diagram">
       <div class="retain">
-        <div class="z del"><b>删除</b>步级（非里程碑）<br>仅保留最近 200 个</div>
-        <div class="z keep"><b>保留</b>里程碑快照<br>章纲定稿 / 章节定稿 / 门禁确认</div>
+        <div class="z del"><b>删除</b>步级（非里程碑）<br>仅保留最近 20 个</div>
+        <div class="z keep"><b>保留</b>里程碑快照<br>项目/分支起点 · 阶段切换 · 章节定稿<br>进入人审 · 全书完成 · 链头最新</div>
       </div>
-      <div class="cap">图 3 · <span class="path">app/core/retention.py</span>：按 checkpoint metadata 分类</div>
+      <div class="cap">图 3 · <span class="path">app/core/retention.py</span>：按 checkpoint 的<b>快照内容</b>（State values）分类——不依赖 metadata，对历史数据同样成立</div>
     </div>
     <p>
-      不分里程碑地只留 200 个的话，一部 50 章小说早就把有意义的版本挤掉了；
-      而<b>全都留着</b>又会让 checkpoint 表无限膨胀。<b>按 metadata 分类</b>是唯一可行的折中。
+      不分里程碑地只留 20 个的话，一部 50 章小说早就把有意义的版本挤掉了；
+      而<b>全都留着</b>又会让 checkpoint 表无限膨胀（实测单条 checkpoint 平均 14.4KB）。
+      <b>按快照内容确定性推导</b>是唯一可行的折中——不写入时注入 metadata，因此对存量数据同样有效。<br>
+      另外注意：门禁确认本身<b>不是</b>独立的里程碑类型；分支线程只有「起点」是里程碑，
+      其余按普通步级处理，否则分支一续写就再也不会被清理。
     </p>
     <h3 id="checkpoint-31">同步 / 异步共用一份实现</h3>
     <pre><span class="c"># checkpointer.py 模块 docstring</span>
@@ -483,7 +490,7 @@ msgs.append(HumanMessage(content=<span class="s">f"第 {current_idx+1} 章《{ti
     <h3 id="timetravel-33">能退到什么粒度</h3>
     <ul class="clean">
       <li><b>步级</b>：每个节点结束都有快照 → 可以退到"上一章写完但还没审核"这种中间态</li>
-      <li><b>里程碑</b>：章纲定稿 / 章节定稿 / 门禁确认被单独标记，长期保留</li>
+      <li><b>里程碑</b>：项目/分支起点、阶段切换、章节定稿（reviewed·polished）、进入人审等待、全书完成、链头最新，被长期保留</li>
     </ul>
     <h3 id="timetravel-34">回退时State 里到底变了什么</h3>
     <div class="tbl-wrap">
@@ -507,7 +514,7 @@ msgs.append(HumanMessage(content=<span class="s">f"第 {current_idx+1} 章《{ti
       按 (chapter_id, version) 追加"之后，回退只需要改指针，<b>正文按版本天然对齐</b>：
     </p>
     <pre><span class="c"># app/storage/body_store.py</span>
-<span class="c"># H8：正文按 (chapter_id, version) **追加**而非覆盖，</span>
+<span class="c"># H8：正文按 (chapter_id, version) **追加**保存，历史版本保留，</span>
 <span class="c">#     支持快照回退时正文随 content_ref 一并回滚</span>
 <span class="c"># content_ref 格式："ch_0003@v7"</span></pre>
     <div class="note g"><b>✓ GC 也因此变得安全</b><div>
@@ -529,7 +536,7 @@ msgs.append(HumanMessage(content=<span class="s">f"第 {current_idx+1} 章《{ti
     <div class="eyebrow">09 · State</div>
     <h2 id="state">State 设计：业务数据与"本轮临时产物"分开</h2>
     <p class="lead">
-      <code>NovelState</code>（<span class="path">app/core/state.py:298</span>）里 30 多个字段，
+      <code>NovelState</code>（<span class="path">app/core/state.py:325</span>）里 22 个字段，
       但它们分成<b>两类</b>，这个区分直接决定 checkpoint 大小与"用完即清"的那批字段怎么写。
     </p>
     <div class="g2">
@@ -548,7 +555,7 @@ msgs.append(HumanMessage(content=<span class="s">f"第 {current_idx+1} 章《{ti
         <p><small>它们只服务于<b>下一次</b>节点调用，写完即清，不进历史快照。</small></p>
       </div>
     </div>
-    <h3 id="state-39">"用完清空"不是可选的洁癖</h3>
+    <h3 id="state-39">"用完清空"是硬性要求</h3>
     <pre><span class="c"># nodes.py · writing_node 的返回</span>
 <span class="k">return</span> {
     ...
@@ -585,7 +592,7 @@ msgs.append(HumanMessage(content=<span class="s">f"第 {current_idx+1} 章《{ti
 <section id="reducers">
   <div class="wrap">
     <div class="eyebrow">10 · Reducers</div>
-    <h2 id="reducers">三种 reducer：覆盖、深合并、增量操作</h2>
+    <h2 id="reducers">三类 reducer：覆盖、深合并、增量操作（外加 LangGraph 内置的 <code>add_messages</code>）</h2>
     <p class="lead">
       LangGraph 里节点返回的是<b>状态增量</b>，怎么合并由字段上的 <code>Annotated[…, reducer]</code> 决定。
       选错reducer 的后果通常是<b>静默丢数据</b>，所以这三个必须区分清楚。
@@ -617,7 +624,7 @@ msgs.append(HumanMessage(content=<span class="s">f"第 {current_idx+1} 章《{ti
         </tbody>
       </table>
     </div>
-    <h3 id="reducers-43">为什么列表字段要用 <code>apply_ops</code> 而不是覆盖</h3>
+    <h3 id="reducers-43">列表字段为什么需要 <code>apply_ops</code></h3>
     <p>
       节点只会返回<b>它改动的那几条</b>。若用默认覆盖语义，返回 <code>[新角色]</code> 会把
       已有角色全清掉。所以 <code>apply_ops</code> 让节点返回操作列表：
@@ -630,13 +637,13 @@ msgs.append(HumanMessage(content=<span class="s">f"第 {current_idx+1} 章《{ti
         <thead><tr><th>op</th><th>作用</th></tr></thead>
         <tbody>
           <tr><td><code>upsert</code></td><td>按 id 存在则更新，否则插入</td></tr>
-          <tr><td><code>remove</code> / <code>delete</code></td><td>按 id 删除</td></tr>
-          <tr><td><code>reorder</code> / <code>move</code></td><td>调整顺序（设定中心的上移/下移）</td></tr>
+          <tr><td><code>delete</code></td><td>按 id 删除</td></tr>
+          <tr><td><code>reorder</code></td><td>调整顺序（设定中心的上移/下移）</td></tr>
         </tbody>
       </table>
     </div>
     <div class="note w"><b>⚠ <code>outline</code> 为什么反而用覆盖</b><div>
-      大纲是<b>一次性整体产出</b>的结构（一次生成一个卷 + 若干章），不是逐条追加的。
+      大纲是<b>一次性整体产出</b>的结构（一次生成一个卷 + 若干章），不逐条追加。
       覆盖语义正好匹配"这次生成的大纲整体替换"。
       真正需要的是<b>卷内增删章</b>——那走章纲阶段的 <code>chapter_outline</code> 节点单独 upsert。
     </div></div>
@@ -670,7 +677,7 @@ msgs.append(HumanMessage(content=<span class="s">f"第 {current_idx+1} 章《{ti
     </div>
     <h3 id="body-48">版本化约定</h3>
     <pre><span class="c"># app/storage/body_store.py</span>
-H8：正文按 (chapter_id, version) **追加**而非覆盖，支持快照回退时正文随content_ref 一并回滚。
+H8：正文按 (chapter_id, version) **追加**保存，覆盖写会丢历史；快照回退时正文随content_ref 一并回滚。
 content_ref 格式："{chapter_id}@v{version}"（如 ch_0003@v7）；
 历史遗留的无版本指针（裸 chapter_id）仍可读，指向 version=0 的基线行。</pre>
     <h3 id="body-49">读取的三级回退链</h3>
@@ -731,7 +738,7 @@ content_ref 格式："{chapter_id}@v{version}"（如 ch_0003@v7）；
         <b>不返回 = 保持原值</b>，这正是 reducer 的价值。</span></li>
     </ol>
     <div class="note d"><b>✗ 一个共同特征</b><div>
-      六条里有五条的失败表现是<b>「界面没反应」或「界面显示为空」</b>，而不是抛异常。
+      六条里有五条的失败表现是<b>「界面没反应」或「界面显示为空」</b>，不会抛异常。
       因为状态机把控制流藏在数据结构里，<b>错误不会自己浮出来</b>——这也是本文档存在的理由。
     </div></div>
   </div>
@@ -740,7 +747,7 @@ content_ref 格式："{chapter_id}@v{version}"（如 ch_0003@v7）；
 <section id="limits">
   <div class="wrap">
     <div class="eyebrow">13 · Known Limits</div>
-    <h2 id="limits">已知短板：写在这里而不是等它被踩到</h2>
+    <h2 id="limits">已知短板：写在这里，免得被踩到</h2>
     <div class="g2">
       <div class="card danger">
         <span class="ico">⏳</span><h4 id="limits-53">向量库不参与时间旅行</h4>
@@ -758,17 +765,17 @@ content_ref 格式："{chapter_id}@v{version}"（如 ch_0003@v7）；
         <span class="ico">📝</span><h4 id="limits-55">审核一致性靠模型自查</h4>
         <p><code>reviewing</code> 让 LLM 输出 <code>ReviewIssue</code>，
         <b>没有规则引擎、没有 NLI 硬校验</b>。伏笔回收靠"未回收伏笔进检索 query"被动防漏。
-        系统的保证是「作者有机会看到并否决」，<b>不是</b>「问题一定被找全」。</p>
+        系统的保证是「作者有机会看到并否决」，「问题一定被找全」则是奢望。</p>
       </div>
       <div class="card warn">
         <span class="ico">🗑️</span><h4 id="limits-56">GC 会真删数据</h4>
         <p><code>gc_versions</code> 回收未被任何快照引用的正文版本。
-        若某些 checkpoint 已被 200 条保留策略淘汰，其对应的正文版本可能被 GC——
+        若某些 checkpoint 已被 20 条保留策略淘汰，其对应的正文版本可能被 GC——
         <b>那一版就再也回不去了</b>。两者必须协同设计，不能各自独立改。</p>
       </div>
       <div class="card warn">
         <span class="ico">📚</span><h4 id="limits-57">State 字段在膨胀</h4>
-        <p>30+ 字段里已有若干"临时产物"靠约定清空。这个约定<b>没有机制保证</b>：
+        <p>22 个字段里已有若干"临时产物"靠约定清空。这个约定<b>没有机制保证</b>：
         漏清一个字段只会让快照慢慢变大，不会有任何报错。</p>
       </div>
       <div class="card warn">
@@ -783,7 +790,7 @@ content_ref 格式："{chapter_id}@v{version}"（如 ch_0003@v7）；
       <li><b>让向量库参与回退</b><span>在 <code>reindex</code> 时以 checkpoint 的章节版本为准重建索引；
         或给向量点带上 <code>content_ref</code> 版本号，检索时按当前 State 过滤。</span></li>
       <li><b>一致性升级为结构化校验</b><span>人物出场表、时间线冲突、伏笔状态机的<b>规则检查</b>，
-        而不是"让模型自查"。这是最薄弱也最能拉开差距的一环。</span></li>
+        比"让模型自查"可靠得多。这是最薄弱也最能拉开差距的一环。</span></li>
       <li><b>用配置驱动替换手写映射</b><span>把阶段定义收进一份声明式配置（阶段名 → 节点名 → 门禁策略 → 下一阶段），
         三张表合一。</span></li>
     </div>
@@ -806,14 +813,14 @@ content_ref 格式："{chapter_id}@v{version}"（如 ch_0003@v7）；
                 <code>STAGE_TO_NODE</code></td>
           </tr>
           <tr>
-            <td><span class="path">app/core/state.py</span><br><small>407 行</small></td>
+            <td><span class="path">app/core/state.py</span><br><small>438 行</small></td>
             <td>State 定义、reducer、初始状态</td>
             <td><code>NovelState</code> <code>merge_dict</code> <code>apply_ops</code>
                 <code>create_initial_state</code></td>
           </tr>
           <tr>
-            <td><span class="path">app/core/nodes.py</span><br><small>2552 行</small></td>
-            <td>13 个节点 + 流转表 + 门禁模板 + agentic 工具</td>
+            <td><span class="path">app/core/nodes.py</span><br><small>2008 行</small></td>
+            <td>12 个节点 + 流转表</td>
             <td><code>NODES</code> <code>STAGE_FLOW</code> <code>STAGE_GATES</code>
                 <code>stage_gate_node</code> <code>human_review_node</code>
                 <code>writing_node</code> <code>_index_approved_chapter</code></td>
@@ -824,15 +831,16 @@ content_ref 格式："{chapter_id}@v{version}"（如 ch_0003@v7）；
             <td><code>get_saver</code> <code>TiDBSaver</code></td>
           </tr>
           <tr>
-            <td><span class="path">app/storage/body_store.py</span><br><small>199 行</small></td>
+            <td><span class="path">app/storage/body_store.py</span><br><small>243 行</small></td>
             <td>正文外置 + 版本化 + GC</td>
             <td><code>body_store</code> <code>parse_ref</code> <code>put_version</code>
                 <code>gc_versions</code></td>
           </tr>
           <tr>
             <td><span class="path">app/core/retention.py</span></td>
-            <td>checkpoint 保留策略（里程碑 vs 步级 200）</td>
-            <td><code>CHECKPOINT_KEEP_RECENT</code></td>
+            <td>checkpoint 保留策略（里程碑 vs 步级 20）</td>
+            <td><code>cleanup_thread_checkpoints</code> <code>retain_checkpoint_ids</code>
+                <code>classify_snapshot</code></td>
           </tr>
           <tr>
             <td><span class="path">app/api/routers/creation.py</span></td>
@@ -840,9 +848,14 @@ content_ref 格式："{chapter_id}@v{version}"（如 ch_0003@v7）；
             <td><code>run_project</code> <code>resume_question</code> <code>_iter_ndjson</code></td>
           </tr>
           <tr>
-            <td><span class="path">app/api/routers/snapshots.py</span></td>
-            <td>时间旅行接口（快照列表 / 回退）</td>
-            <td>—</td>
+            <td><span class="path">app/api/routers/chapters.py</span></td>
+            <td>正文版本列表 / 回退（时间旅行在正文侧的落地接口）</td>
+            <td><code>list_chapter_versions</code> <code>restore_chapter_version</code></td>
+          </tr>
+          <tr>
+            <td><span class="path">app/api/routers/branches.py</span></td>
+            <td>分支：从快照派生 / 对比 / 合并</td>
+            <td><code>create_branch</code>（<code>from_snapshot_id</code>）<code>merge_branch</code></td>
           </tr>
         </tbody>
       </table>
@@ -854,7 +867,7 @@ content_ref 格式："{chapter_id}@v{version}"（如 ch_0003@v7）；
         <tbody>
           <tr><td><code>STAGE_GATES</code></td><td>4 个阶段</td><td>需要「先对齐再创作」的阶段</td></tr>
           <tr><td><code>GATE_MAX_ROUNDS</code></td><td><code>5</code></td><td>门禁轮次<b>软</b>上限，只提示不强制</td></tr>
-          <tr><td><code>CHECKPOINT_KEEP_RECENT</code></td><td><code>200</code></td><td>步级快照保留数（里程碑不参与淘汰）</td></tr>
+          <tr><td><code>settings.checkpoint_keep_recent</code></td><td><code>20</code></td><td>步级快照保留数（env 可调，里程碑不参与淘汰）</td></tr>
           <tr><td><code>MAX_RESEARCH_CHARS</code></td><td><code>4000</code></td><td>章纲阶段预取资料的注入上限</td></tr>
           <tr><td><code>PREV_TAIL_CHARS</code></td><td><code>1200</code></td><td>上一章结尾原文直塞长度</td></tr>
         </tbody>

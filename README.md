@@ -13,13 +13,22 @@
   - 开篇 / 快速上手 / 图 API / 智能体架构 / 持久化与记忆 / 人机协作与流式输出
 - **GraphRAG 学习**：围绕 [nano-graphrag](https://github.com/gusye1234/nano-graphrag) 的系列资料
   - 从入门到理解（初学者教程）— `docs/graphrag/nano-graphrag-tutorial.md`
+  - 从入门到理解 · 思维脑图 — `docs/graphrag/nano-graphrag-tutorial-mindmap.md`
   - 源码深度解析（参考手册）— `docs/graphrag/nano-graphrag-source-analysis.md`
+  - 源码深度解析 · 思维脑图 — `docs/graphrag/nano-graphrag-source-analysis-mindmap.md`
+- **A2A 协议**：[Agent2Agent 协议](https://a2a-protocol.org/) 的系统学习笔记，
+  以规范 v1.0.0 为基准（`docs/a2a/`）
+  - 概览与学习路线 — `docs/a2a/index.md`
+  - 开篇：为什么需要 A2A / 前置知识准备 / 核心认知
+  - 核心模型详解 / 标准接口全解析 / 通信模型
+  - 成熟系统架构拆解 / 全流程调用时序
+  - 动手实战 1（最小 A2A Demo）/ 动手实战 2（对接 RAG 与工具调用）
+  - 生产落地 / 避坑专题 / 对比选型 / 收尾与资源清单 / 附录（JSON Schema）
 - **AgentNovel 设计文档**：NovelCraft（AI 小说创作系统）的设计文档（`docs/agentnovel/`，
   整页 HTML 由 `deploy/html2vp.py` 转换，样式在 `docs/.vitepress/theme/agentnovel.css`）
   - 总览：把「跟 LLM 聊天写小说」变成一条可控的创作流水线 — `docs/agentnovel/index.md`
   - LangGraph 编排设计 — `docs/agentnovel/graph.md`
   - 检索系统（RAG）设计详解 — `docs/agentnovel/rag.md`
-  - 护栏（Guardrails）设计 — `docs/agentnovel/guardrails.md`
   - 护栏工程实现报告 — `docs/agentnovel/guardrails-report.md`
   - 人在回路（HITL）详细设计 — `docs/agentnovel/hitl.md`
   - 去 AI 味提示词工程详细设计 — `docs/agentnovel/deai.md`
@@ -31,7 +40,7 @@
 ```bash
 npm install
 npm run dev        # 本地预览 http://localhost:5173
-npm run build      # 构建产物到 docs/.vitepress/dist
+npm run build      # 先校验 mermaid 图，再把产物构建到 docs/.vitepress/dist
 npm run preview    # 预览构建结果
 ```
 
@@ -39,6 +48,12 @@ npm run preview    # 预览构建结果
 > 会立即改动线上文件；而 CSP 里内联脚本的哈希只有跑 `./deploy/install.sh` 时才会重算，
 > 哈希对不上新构建时 VitePress 的启动脚本会被 CSP 拦截，表现为页面点链接没反应。
 > 构建后请务必跑一次 `./deploy/install.sh` 再算收工。
+
+> mermaid 的图是浏览器里运行时渲染的：源码写错，构建不会报错，页面却只显示一张
+> "Syntax error in text" 的报错图。`npm run build` 现在会先跑
+> `deploy/check-mermaid.mjs`，用 mermaid 自己的解析器把 `docs/` 下所有
+> ` ```mermaid ` 代码块过一遍，有语法错误就让构建失败（错误信息里带文件名和行号）。
+> 单独跑：`node deploy/check-mermaid.mjs docs`。
 
 ## 新增栏目 / 页面
 

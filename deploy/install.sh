@@ -84,6 +84,12 @@ npm run build -- --outDir "$STAGING_DIR"
 log "检查文档组件样式齐全"
 python3 "$REPO_DIR/deploy/check-doc-styles.py" "$REPO_DIR/docs" || die "文档样式不完整，先补 custom.css"
 
+# 属性名写坏了（比如 title="文字"" 多一个引号）浏览器的 HTML 解析器会
+# 静默丢掉它，页面看着正常；等 Vue 客户端重新渲染时 setAttribute 抛
+# InvalidCharacterError，整页正文渲染不出来。构建阶段直接拦下来。
+log "检查内联 HTML 属性名合法"
+python3 "$REPO_DIR/deploy/check-doc-html.py" "$REPO_DIR/docs" || die "内联 HTML 属性名非法，先修文档里的属性"
+
 # 产物里绝不能出现这些东西，否则等于把源码/密钥发到公网
 log "检查产物里没有敏感文件"
 leaks="$(find "$STAGING_DIR" \( -name '*.map' -o -name '.env*' -o -name '.git*' -o -name '*.pem' -o -name '*.key' -o -name 'id_rsa*' -o -name '*.log' \) -print)"
